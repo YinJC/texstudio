@@ -6,7 +6,7 @@ Q_DECLARE_METATYPE(QAction *)
 QHash<QString, TitledPanelPage *> TitledPanelPage::allPages;
 
 TitledPanelPage::TitledPanelPage(QWidget *widget, const QString &id, const QString &text, const QIcon &icon) :
-	m_widget(0), m_visibleAction(0), m_selectAction(0), m_toolbarActions(0)
+    m_widget(nullptr), m_visibleAction(nullptr), m_selectAction(nullptr), m_toolbarActions(nullptr)
 {
 #ifndef QT_NO_DEBUG
 	if (allPages.contains(id)) {
@@ -19,7 +19,7 @@ TitledPanelPage::TitledPanelPage(QWidget *widget, const QString &id, const QStri
 	m_widget = widget;
     Q_ASSERT(m_widget);
 	m_widget->setProperty("containingPage", QVariant::fromValue<TitledPanelPage *>(this));
-	QFrame *f = qobject_cast<QFrame *>(m_widget); // remove frame form widget if it has one
+	auto *f = qobject_cast<QFrame *>(m_widget); // remove frame form widget if it has one
 	if (f) f->setFrameShape(QFrame::NoFrame);
 
 	m_id = id;
@@ -53,7 +53,7 @@ void TitledPanelPage::addToolbarAction(QAction *act)
 	m_toolbarActions->append(act);
 }
 
-void TitledPanelPage::addToolbarActions(QList<QAction *> actions)
+void TitledPanelPage::addToolbarActions(const QList<QAction *>& actions)
 {
 	m_toolbarActions->append(actions);
 }
@@ -80,7 +80,7 @@ TitledPanelPage *TitledPanelPage::fromId(const QString &id)
 	return page;
 }
 
-void TitledPanelPage::updatePageTitle(const QString &id, const QString newTitle)
+void TitledPanelPage::updatePageTitle(const QString &id, const QString& newTitle)
 {
 	TitledPanelPage *page = allPages.value(id);
 	if (page) page->setTitle(newTitle);
@@ -108,8 +108,8 @@ void TitledPanelPage::setIcon(const QIcon &icon)
 /*** class TitledPanel ***/
 
 TitledPanel::TitledPanel(QWidget *parent) :
-	QFrame(parent), mToggleViewAction(0), closeAction(0), pageSelectActions(0), selectorStyle(ComboSelector), vLayout(0),
-	topbar(0), lbTopbarLabel(0), cbTopbarSelector(0), tbTopbarSelector(0), stack(0)
+    QFrame(parent), mToggleViewAction(nullptr), closeAction(nullptr), pageSelectActions(nullptr), selectorStyle(ComboSelector), vLayout(nullptr),
+    topbar(nullptr), lbTopbarLabel(nullptr), cbTopbarSelector(nullptr), tbTopbarSelector(nullptr), stack(nullptr)
 {
 	setFrameShape(QFrame::Box);
 	setFrameShadow(QFrame::Plain);
@@ -165,7 +165,7 @@ void TitledPanel::removePage(TitledPanelPage *page, bool guiUpdate)
 	disconnect(page->m_visibleAction, SIGNAL(toggled(bool)), this, SLOT(togglePageVisibleFromAction(bool)));
 
 	stack->removeWidget(page->m_widget);
-	page->setParent(0);
+    page->setParent(nullptr);
 
 	int i = pages.indexOf(page);
 	if (i >= 0) pages.removeAt(i);
@@ -182,7 +182,7 @@ TitledPanelPage *TitledPanel::pageFromId(const QString &id)
 {
 	TitledPanelPage *page = TitledPanelPage::fromId(id);
 	if (!page || !pages.contains(page))
-		return 0;
+        return nullptr;
 	return page;
 }
 
@@ -221,7 +221,7 @@ void TitledPanel::setCurrentPage(const QString &id)
 TitledPanelPage *TitledPanel::currentPage() const
 {
 	QWidget *w = stack->currentWidget();
-	if (!w) return 0;
+    if (!w) return nullptr;
 	return qvariant_cast<TitledPanelPage *>(w->property("containingPage"));
 }
 
@@ -264,11 +264,18 @@ void TitledPanel::updateTopbar()
 	// on toolbar->clear() or reparenting
 	// so we create a new toolbar
 	// alternatively do not use a toolbar, but a widget styled like one, as QtCreator does
+
+    // dpi aware icon scaling
+    // screen dpi is read and the icon are scaled up in reference to 96 dpi
+    // this should be helpful on X11 (Xresouces) and possibly windows
+    double dpi=QGuiApplication::primaryScreen()->logicalDotsPerInch();
+    double scale=dpi/96;
+
 	topbar = new QToolBar(this);
 	topbar->setOrientation(Qt::Horizontal);
 	topbar->setFloatable(false);
 	topbar->setMovable(false);
-	topbar->setIconSize(QSize(16, 16));
+    topbar->setIconSize(QSize(qRound(16*scale), qRound(16*scale)));
 	topbar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
 	QList<QAction *> acts = pageSelectActions->actions();
@@ -277,7 +284,7 @@ void TitledPanel::updateTopbar()
 	}
 
 	int visiblePageCount = 0;
-	TitledPanelPage *firstVisiblePage = 0;
+    TitledPanelPage *firstVisiblePage = nullptr;
 	foreach (TitledPanelPage *p, pages) {
 		if (p->visible()) {
 			if (!firstVisiblePage) firstVisiblePage = p;
@@ -286,9 +293,9 @@ void TitledPanel::updateTopbar()
 	}
 
 	// will be deleted together with oldTopbar because they are children of it
-	lbTopbarLabel = 0;
-	cbTopbarSelector = 0;
-	tbTopbarSelector = 0;
+    lbTopbarLabel = nullptr;
+    cbTopbarSelector = nullptr;
+    tbTopbarSelector = nullptr;
 
 	if (visiblePageCount == 1) {
 		lbTopbarLabel = new QLabel(firstVisiblePage->m_title);
@@ -413,7 +420,7 @@ void TitledPanel::updatePageSelector(TitledPanelPage *page)
 
 void TitledPanel::onPageTitleChange()
 {
-	TitledPanelPage *page = qobject_cast<TitledPanelPage *>(sender());
+	auto *page = qobject_cast<TitledPanelPage *>(sender());
 	if (!page) return;
 
 	updatePageSelector(page);
@@ -421,7 +428,7 @@ void TitledPanel::onPageTitleChange()
 
 void TitledPanel::onPageIconChange()
 {
-	QAction *act = qobject_cast<QAction *>(sender());
+	auto *act = qobject_cast<QAction *>(sender());
 	if (act) {
 		// TODO update page select controls
 		qDebug() << "Page icon change not yet implemented";
@@ -430,29 +437,29 @@ void TitledPanel::onPageIconChange()
 
 void TitledPanel::setActivePageFromAction()
 {
-	QAction *act = qobject_cast<QAction *>(sender());
+	auto *act = qobject_cast<QAction *>(sender());
 	if (!act) return;
 	setCurrentPage(act->data().toString());
 }
 
 void TitledPanel::setActivePageFromComboBox(int index)
 {
-	QComboBox *box = qobject_cast<QComboBox *>(sender());
+	auto *box = qobject_cast<QComboBox *>(sender());
 	if (box)
 		setCurrentPage(box->itemData(index).toString());
 }
 
 void TitledPanel::setActivePageFromTabBar(int index)
 {
-	QTabBar *tabBar = qobject_cast<QTabBar *>(sender());
+	auto *tabBar = qobject_cast<QTabBar *>(sender());
 	if (tabBar)
 		setCurrentPage(tabBar->tabData(index).toString());
 }
 
 void TitledPanel::togglePageVisibleFromAction(bool on)
 {
-	Q_UNUSED(on);
-	QAction *act = qobject_cast<QAction *>(sender());
+	Q_UNUSED(on)
+	auto *act = qobject_cast<QAction *>(sender());
 	if (!act || act->data().toString() == "") return;
 
 	// TODO maybe just remove(id)

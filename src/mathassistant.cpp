@@ -2,7 +2,7 @@
 #include "smallUsefulFunctions.h"
 #include <QMutex>
 
-MathAssistant *MathAssistant::m_Instance = 0;
+MathAssistant *MathAssistant::m_Instance = nullptr;
 
 MathAssistant::MathAssistant() :
 	QObject()
@@ -32,39 +32,39 @@ void MathAssistant::exec()
 		return;
 	}
 	process.setWorkingDirectory(QFileInfo(texTablet).absolutePath());
-	process.start("\"" + texTablet + "\"");
+    process.start("\"" + texTablet + "\"",QStringList());
 }
 
 void MathAssistant::processError(QProcess::ProcessError err)
 {
 	switch (err) {
 	case QProcess::FailedToStart:
-		QMessageBox::information(0, "FailedToStart", "FailedToStart");
+        QMessageBox::information(nullptr, "FailedToStart", "FailedToStart");
 		break;
 	case QProcess::Crashed:
-		QMessageBox::information(0, "Crashed", "Crashed");
+        QMessageBox::information(nullptr, "Crashed", "Crashed");
 		break;
 	case QProcess::Timedout:
-		QMessageBox::information(0, "Timedout", "Timedout");
+        QMessageBox::information(nullptr, "Timedout", "Timedout");
 		break;
 	case QProcess::WriteError:
-		QMessageBox::information(0, "WriteError", "WriteError");
+        QMessageBox::information(nullptr, "WriteError", "WriteError");
 		break;
 	case QProcess::ReadError:
-		QMessageBox::information(0, "ReadError", "ReadError");
+        QMessageBox::information(nullptr, "ReadError", "ReadError");
 		break;
 	case QProcess::UnknownError:
-		QMessageBox::information(0, "UnknownError", "UnknownError");
+        QMessageBox::information(nullptr, "UnknownError", "UnknownError");
 		break;
 	default:
-		QMessageBox::information(0, "default", "default");
+        QMessageBox::information(nullptr, "default", "default");
 		break;
 	}
 }
 
 void MathAssistant::processFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-	Q_UNUSED(exitCode);
+	Q_UNUSED(exitCode)
 	if (exitStatus != QProcess::NormalExit) {
 		UtilsUi::txsCritical(tr("TexTablet crashed."));
 	}

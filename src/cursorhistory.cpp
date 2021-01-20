@@ -13,7 +13,7 @@
 
 
 CursorHistory::CursorHistory(LatexDocuments *docs) :
-	QObject(docs), m_backAction(0), m_forwardAction(0), m_maxLength(30), m_insertionEnabled(true)
+    QObject(docs), m_backAction(nullptr), m_forwardAction(nullptr), m_maxLength(30), m_insertionEnabled(true)
 {
 	connect(docs, SIGNAL(aboutToDeleteDocument(LatexDocument *)), this, SLOT(aboutToDeleteDoc(LatexDocument *)));
 	currentEntry = history.end();
@@ -30,14 +30,14 @@ bool CursorHistory::insertPos(QDocumentCursor cur, bool deleteBehindCurrent)
 	CursorPosition pos(cur);
 	connectUnique(pos.doc(), SIGNAL(destroyed(QObject *)), this, SLOT(documentClosed(QObject *)));
 	// TODO destroyed() may be duplicate to aboutToDeleteDocument() - needs more testing. anyway it does not harm
-	connectUnique(pos.doc(), SIGNAL(lineDeleted(QDocumentLineHandle *)), this, SLOT(lineDeleted(QDocumentLineHandle *)));
+    connectUnique(pos.doc(), SIGNAL(lineDeleted(QDocumentLineHandle *,int)), this, SLOT(lineDeleted(QDocumentLineHandle *,int)));
 	connectUnique(pos.doc(), SIGNAL(lineRemoved(QDocumentLineHandle *)), this, SLOT(lineDeleted(QDocumentLineHandle *)));
 
 	if (deleteBehindCurrent && currentEntry != history.end()) {
-		currentEntry++;
+        ++currentEntry;
 		currentEntry = history.erase(currentEntry, history.end());
 	}
-	if (currentEntry == history.end() && currentEntry != history.begin()) currentEntry--;
+    if (currentEntry == history.end() && currentEntry != history.begin()) --currentEntry;
 
 	// do not insert neighboring duplicates
 	if (currentEntryValid() && (*currentEntry).equals(pos)) {
@@ -50,16 +50,21 @@ bool CursorHistory::insertPos(QDocumentCursor cur, bool deleteBehindCurrent)
 		return false;
 	}
 
-	if (history.count() >= m_maxLength) {
+    if (history.size() >= m_maxLength) {
 		if (currentEntry == history.begin()) {
-			history.removeLast();
+            history.pop_back();
 		} else {
-			history.removeFirst();
+            history.pop_front();
 		}
 	}
 
-	currentEntry++;
-	history.insert(currentEntry, pos);
+	if (history.size() > 0) {
+		++currentEntry;
+		history.insert(currentEntry, pos);
+	}
+	else {
+		history.insert(history.begin(), pos);
+	}
 	updateNavActions();
 	return true;
 }
@@ -121,7 +126,7 @@ QDocumentCursor CursorHistory::back(const QDocumentCursor &currentCursor)
 
 	// insert currentCursor to be able to go back
 	if (currentCursor.isValid() && insertPos(currentCursor, false)) {
-		currentEntry--;
+        --currentEntry;
 	}
 
 	CursorPosition pos(currentCursor);
@@ -137,7 +142,7 @@ QDocumentCursor CursorHistory::back(const QDocumentCursor &currentCursor)
 
 QDocumentCursor CursorHistory::forward(const QDocumentCursor &currentCursor)
 {
-	Q_UNUSED(currentCursor);
+	Q_UNUSED(currentCursor)
 	CursorPosList::iterator next = nextValidEntry(currentEntry);
 	if (currentEntry == history.end() || next == history.end()) {
 		updateNavActions();
@@ -169,7 +174,7 @@ void CursorHistory::documentClosed(QObject *obj)
 		aboutToDeleteDoc(doc);
 }
 
-void CursorHistory::lineDeleted(QDocumentLineHandle *dlh)
+void CursorHistory::lineDeleted(QDocumentLineHandle *dlh,int)
 {
 	for (CursorPosList::iterator it = history.begin(); it != history.end(); ++it) {
 		if ( (*it).dlh() == dlh ) {
@@ -216,7 +221,7 @@ void CursorHistory::validate()
 	CursorPosList::iterator it = history.begin();
 	while (it != history.end()) {
 		if (!(*it).isValid()) {
-			if (it == currentEntry) currentEntry++;
+            if (it == currentEntry) ++currentEntry;
 			qDebug() << "removed invalid cursorHistory entry" << (*it).doc()->getFileName();
 			Q_ASSERT(currentEntry != it);
 			it = history.erase(it);
@@ -268,7 +273,7 @@ void CursorHistory::debugPrint()
 	while (it != history.end()) {
 		CursorPosition pos = *it;
 		qDebug() << ((it == currentEntry) ? "*" : " ") << pos.doc()->getFileName() << pos.oldLineNumber() << "col:" << pos.columnNumber();
-		it++;
+        ++it;
 	}
 	qDebug() << ((it == currentEntry) ? "*" : " ") << "end";
 }

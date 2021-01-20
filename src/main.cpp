@@ -21,6 +21,7 @@
 #include "texstudio.h"
 #include "smallUsefulFunctions.h"
 #include "debughelper.h"
+#include "debuglogger.h"
 #include "utilsVersion.h"
 #include <qtsingleapplication.h>
 #include <QSplashScreen>
@@ -58,13 +59,13 @@ protected:
 
 TexstudioApp::TexstudioApp(int &argc, char **argv) : QtSingleApplication(argc, argv)
 {
-	mw = 0;
+	mw = nullptr;
 	initialized = false;
 }
 
 TexstudioApp::TexstudioApp(QString &id, int &argc, char **argv) : QtSingleApplication(id, argc, argv)
 {
-	mw = 0;
+	mw = nullptr;
 	initialized = false;
 }
 
@@ -75,7 +76,7 @@ void TexstudioApp::init(QStringList &cmdLine)
 	splash->show();
 	processEvents();
 
-	mw = new Texstudio(0, 0, splash);
+    mw = new Texstudio(nullptr, Qt::WindowFlags(), splash);
 	connect(this, SIGNAL(lastWindowClosed()), this, SLOT(quit()));
 	splash->finish(mw);
 	delete splash;
@@ -84,14 +85,14 @@ void TexstudioApp::init(QStringList &cmdLine)
 
 	if (!delayedFileLoad.isEmpty()) cmdLine << delayedFileLoad;
 	mw->executeCommandLine(cmdLine, true);
-    if(!cmdLine.contains("--auto-tests")){
-        mw->startupCompleted();
-    }
+	if(!cmdLine.contains("--auto-tests")){
+		mw->startupCompleted();
+	}
 }
 
 TexstudioApp::~TexstudioApp()
 {
-	if (mw) delete mw;
+	delete mw;
 }
 
 bool TexstudioApp::event(QEvent *event)
@@ -140,7 +141,11 @@ QStringList parseArguments(const QStringList &args, bool &outStartAlways)
 			}
 			else if (cmdArgument == "--config" && (++i < args.count()))
 				ConfigManager::configDirOverride = args[i];
-			else if (cmdArgument.startsWith("-"))
+#ifdef DEBUG_LOGGER
+			else if ((cmdArgument == "--debug-logfile") && (++i < args.count()))
+				debugLoggerStart(args[i]);
+#endif
+			else
 				cmdLine << cmdArgument;
 		} else
 			cmdLine << QFileInfo(cmdArgument).absoluteFilePath();
@@ -154,15 +159,19 @@ bool handleCommandLineOnly(const QStringList &cmdLine) {
 		QTextStream(stdout) << "Usage: texstudio [options] [file]\n"
 							<< "\n"
 							<< "Options:\n"
-							<< "  --config DIR            use the specified settings directory\n"
-							<< "  --master                define the document as explicit root document\n"
-							<< "  --line LINE[:COL]       position the cursor at line LINE and column COL\n"
-							<< "  --insert-cite CITATION  inserts the given citation\n"
-							<< "  --start-always          start a new instance, even if TXS is already running\n"
-							<< "  --pdf-viewer-only       run as a standalone pdf viewer without an editor\n"
-							<< "  --page PAGENUM          display a certain page in the pdf viewer\n"
-                            << "  --no-session            do not load/save the session at startup/close\n"
-                            << "  --version               show version number\n";
+							<< "  --config DIR              use the specified settings directory\n"
+							<< "  --master                  define the document as explicit root document\n"
+							<< "  --line LINE[:COL]         position the cursor at line LINE and column COL\n"
+							<< "  --insert-cite CITATION    inserts the given citation\n"
+							<< "  --start-always            start a new instance, even if TXS is already running\n"
+							<< "  --pdf-viewer-only         run as a standalone pdf viewer without an editor\n"
+							<< "  --page PAGENUM            display a certain page in the pdf viewer\n"
+                            << "  --no-session              do not load/save the session at startup/close\n"
+                            << "  --version                 show version number\n"
+#ifdef DEBUG_LOGGER
+							<< "  --debug-logfile pathname  write debug messages to pathname\n"
+#endif
+							;
 		return true;
 	}
 
@@ -177,6 +186,9 @@ bool handleCommandLineOnly(const QStringList &cmdLine) {
 int main(int argc, char **argv)
 {
 	QString appId = generateAppId();
+#if QT_VERSION >= QT_VERSION_CHECK(5,6,0)
+	QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+#endif
 	// This is a dummy constructor so that the programs loads fast.
 	TexstudioApp a(appId, argc, argv);
 	bool startAlways = false;
@@ -198,13 +210,22 @@ int main(int argc, char **argv)
 	}
 
 	a.setApplicationName( TEXSTUDIO );
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)) && defined(Q_OS_LINUX)
+	a.setDesktopFileName("texstudio");
+#endif
 	a.init(cmdLine); // Initialization takes place only if there is no other instance running.
 
 	QObject::connect(&a, SIGNAL(messageReceived(const QString &)),
 	                 a.mw, SLOT(onOtherInstanceMessage(const QString &)));
 
 	try {
-		return a.exec();
+		int execResult = a.exec();
+#ifdef DEBUG_LOGGER
+		if (debugLoggerIsLogging()) {
+			debugLoggerStop();
+		}
+#endif
+		return execResult;
 	} catch (...) {
 #ifndef NO_CRASH_HANDLER
 		catchUnhandledException();

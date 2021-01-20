@@ -770,64 +770,6 @@ QList<int> strToIntList(const QString &s)
 	return ints;
 }
 
-// minimal json parser
-// only supports strings as values, i.e.
-// { "key1" : "val1", "key2" : "val2"}
-// This is just a quick solution. If more complexity is requires, one should resort to QJson or the JSON support in Qt 5
-bool minimalJsonParse(const QString &text, QHash<QString, QString> &map)
-{
-	int len = text.length();
-	int col = text.indexOf('{');
-	while (true) {
-		QString key;
-		QString val;
-		int startStr, endStr;
-		startStr = text.indexOf('"', col + 1);
-		if (startStr < 0) return true;
-		endStr = startStr;
-		while (endStr >= 0) {
-			endStr = text.indexOf('"', endStr + 1);
-			if (text.at(endStr - 1) != '\\') break;
-		}
-		if (endStr < 0) return false;
-		key = text.mid(startStr + 1, endStr - startStr - 1); // +1 / -1 outer removes qoutes
-		key.replace("\\\"", "\"");
-
-		col = endStr + 1;
-		while (col < len && text.at(col).isSpace()) col++;
-		if (col >= len || (text.at(col)) != ':') return false;
-		col++;
-		while (col < len && text.at(col).isSpace()) col++;
-
-		if (col >= len || (text.at(col)) != '"') return false;
-		startStr = col;
-		endStr = startStr;
-		while (endStr >= 0) {
-			endStr = text.indexOf('"', endStr + 1);
-			if (text.at(endStr - 1) != '\\') break;
-		}
-		if (endStr < 0) return false;
-		val = text.mid(startStr + 1, endStr - startStr - 1); // +1 / -1 outer removes qoutes
-		val.replace("\\\"", "\"");
-		map[key] = val;
-
-		col = endStr + 1;
-		while (col < len && text.at(col).isSpace()) col++;
-		if (col >= len) return false;
-		if (text.at(col) == '}') return true;
-		if (text.at(col) != ',') return false;
-	}
-	return true;
-}
-
-QString formatJsonStringParam(const QString &id, const QString &val, int minIdWidth)
-{
-	QString s = enquoteStr(id);
-	while (s.length() < minIdWidth) s += ' ';
-	s += " : " + enquoteStr(val);
-	return s;
-}
-
 QString enquoteStr(const QString &s)
 {
 	QString res = s;
@@ -1006,13 +948,13 @@ QString getImageAsText(const QPixmap &AImage, const int w)
 void showTooltipLimited(QPoint pos, QString text, int relatedWidgetWidth)
 {
 	text.replace("\t", "    "); //if there are tabs at the position in the string, qt crashes. (13707)
-	QRect screen = QApplication::desktop()->availableGeometry(pos);
+	QRect screen = UtilsUi::getAvailableGeometryAt(pos);
 	// estimate width of coming tooltip
 	// rather dirty code
 	bool textWillWarp = Qt::mightBeRichText(text);
-	QLabel lLabel(0, Qt::ToolTip);
+    QLabel lLabel(nullptr, Qt::ToolTip);
 	lLabel.setFont(QToolTip::font());
-	lLabel.setMargin(1 + lLabel.style()->pixelMetric(QStyle::PM_ToolTipLabelFrameWidth, 0, &lLabel));
+    lLabel.setMargin(1 + lLabel.style()->pixelMetric(QStyle::PM_ToolTipLabelFrameWidth, nullptr, &lLabel));
 	lLabel.setFrameStyle(QFrame::StyledPanel);
 	lLabel.setAlignment(Qt::AlignLeft);
 	lLabel.setIndent(1);
@@ -1049,7 +991,9 @@ void showTooltipLimited(QPoint pos, QString text, int relatedWidgetWidth)
 					}
 				}
 				int averageWidth = lLabel.fontMetrics().averageCharWidth();
-				maxLength = qMin(maxLength, availableWidth / averageWidth);
+                if(averageWidth>1){
+                    maxLength = qMin(maxLength, availableWidth / averageWidth);
+                }
 				while (textWidthInPixels > availableWidth && maxLength > 10) {
 					maxLength -= 2;
 					for (int i = 0; i < lines.count(); i++) {

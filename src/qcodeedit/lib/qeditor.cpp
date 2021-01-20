@@ -43,13 +43,9 @@
 
 #include "libqmarkedscrollbar/src/markedscrollbar.h"
 
-#if QT_VERSION >= 0x040600
 #include <QPropertyAnimation>
-#endif
 
-#if QT_VERSION >= 0x050100
 #include <QSaveFile>
-#endif
 
 #ifdef Q_OS_MAC
 #include <QSysInfo>
@@ -172,7 +168,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 QList<QEditor*> QEditor::m_editors;
-QEditorInputBindingInterface* QEditor::m_defaultBinding = 0;
+QEditorInputBindingInterface* QEditor::m_defaultBinding = nullptr;
 QHash<QString, QEditorInputBindingInterface*> QEditor::m_registeredBindings;
 bool QEditor::m_defaultKeysSet = false;
 QHash<QString, int> QEditor::m_registeredKeys;
@@ -319,12 +315,12 @@ void QEditor::setDefaultFlags(int flags)
 */
 QEditor::QEditor(QWidget *p)
  : QAbstractScrollArea(p),
-	pMenu(0), m_lineEndingsMenu(0), m_lineEndingsActions(0),
-	m_bindingsMenu(0), aDefaultBinding(0), m_bindingsActions(0),
-	m_doc(0), m_definition(0),
+    pMenu(nullptr), m_lineEndingsMenu(nullptr), m_lineEndingsActions(nullptr),
+    m_bindingsMenu(nullptr), aDefaultBinding(nullptr), m_bindingsActions(nullptr),
+    m_doc(nullptr), m_definition(nullptr),
 	m_doubleClickSelectionType(QDocumentCursor::WordOrCommandUnderCursor), m_tripleClickSelectionType(QDocumentCursor::LineUnderCursor),
 	m_curPlaceHolder(-1), m_placeHolderSynchronizing(false), m_state(defaultFlags()),
-	mDisplayModifyTime(true), m_blockKey(false), m_disableAccentHack(false), m_LineWidth(0), m_wrapAfterNumChars(0), m_scrollAnimation(0)
+    mDisplayModifyTime(true), m_blockKey(false), m_disableAccentHack(false), m_LineWidth(0), m_wrapAfterNumChars(0), m_scrollAnimation(nullptr)
 {
 	m_editors << this;
 
@@ -339,12 +335,12 @@ QEditor::QEditor(QWidget *p)
 */
 QEditor::QEditor(bool actions, QWidget *p,QDocument *doc)
  : QAbstractScrollArea(p),
-	pMenu(0), m_lineEndingsMenu(0), m_lineEndingsActions(0),
-	m_bindingsMenu(0), aDefaultBinding(0), m_bindingsActions(0),
-	m_doc(0), m_definition(0),
+    pMenu(nullptr), m_lineEndingsMenu(nullptr), m_lineEndingsActions(nullptr),
+    m_bindingsMenu(nullptr), aDefaultBinding(nullptr), m_bindingsActions(nullptr),
+    m_doc(nullptr), m_definition(nullptr),
 	m_doubleClickSelectionType(QDocumentCursor::WordOrCommandUnderCursor), m_tripleClickSelectionType(QDocumentCursor::ParenthesesOuter),
 	m_curPlaceHolder(-1), m_placeHolderSynchronizing(false), m_state(defaultFlags()),
-	mDisplayModifyTime(true), m_blockKey(false), m_disableAccentHack(false), m_LineWidth(0), m_wrapAfterNumChars(0), m_scrollAnimation(0)
+    mDisplayModifyTime(true), m_blockKey(false), m_disableAccentHack(false), m_LineWidth(0), m_wrapAfterNumChars(0), m_scrollAnimation(nullptr)
 {
 	m_editors << this;
 
@@ -362,10 +358,10 @@ QEditor::QEditor(bool actions, QWidget *p,QDocument *doc)
 */
 QEditor::QEditor(const QString& s, QWidget *p)
  : QAbstractScrollArea(p),
-	pMenu(0), m_lineEndingsMenu(0), m_lineEndingsActions(0),
-	m_bindingsMenu(0), aDefaultBinding(0), m_bindingsActions(0),
-	m_doc(0), m_definition(0), m_curPlaceHolder(-1), m_placeHolderSynchronizing(false), m_state(defaultFlags()),
-		mDisplayModifyTime(true),m_blockKey(false),m_disableAccentHack(false),m_LineWidth(0),m_scrollAnimation(0)
+    pMenu(nullptr), m_lineEndingsMenu(nullptr), m_lineEndingsActions(nullptr),
+    m_bindingsMenu(nullptr), aDefaultBinding(nullptr), m_bindingsActions(nullptr),
+    m_doc(nullptr), m_definition(nullptr), m_curPlaceHolder(-1), m_placeHolderSynchronizing(false), m_state(defaultFlags()),
+        mDisplayModifyTime(true),m_blockKey(false),m_disableAccentHack(false),m_LineWidth(0),m_scrollAnimation(nullptr)
 {
 	m_editors << this;
 
@@ -384,10 +380,10 @@ QEditor::QEditor(const QString& s, QWidget *p)
 */
 QEditor::QEditor(const QString& s, bool actions, QWidget *p)
  : QAbstractScrollArea(p),
-	pMenu(0), m_lineEndingsMenu(0), m_lineEndingsActions(0),
-	m_bindingsMenu(0), aDefaultBinding(0), m_bindingsActions(0),
-	m_doc(0), m_definition(0), m_curPlaceHolder(-1), m_placeHolderSynchronizing(false), m_state(defaultFlags()),
-	mDisplayModifyTime(true), m_useQSaveFile(true), m_blockKey(false), m_disableAccentHack(false), m_LineWidth(0), m_scrollAnimation(0)
+    pMenu(nullptr), m_lineEndingsMenu(nullptr), m_lineEndingsActions(nullptr),
+    m_bindingsMenu(nullptr), aDefaultBinding(nullptr), m_bindingsActions(nullptr),
+    m_doc(nullptr), m_definition(nullptr), m_curPlaceHolder(-1), m_placeHolderSynchronizing(false), m_state(defaultFlags()),
+    mDisplayModifyTime(true), m_useQSaveFile(true), m_blockKey(false), m_disableAccentHack(false), m_LineWidth(0), m_scrollAnimation(nullptr)
 {
 	m_editors << this;
 
@@ -705,7 +701,7 @@ void QEditor::init(bool actions,QDocument *doc)
 		m_bindingsMenu->addAction(aDefaultBinding);
 		m_bindingsMenu->addSeparator();
 		m_bindingsActions->addAction(aDefaultBinding);
-		m_registeredBindings["default"] = 0;
+        m_registeredBindings["default"] = nullptr;
 
 		updateBindingsMenu();
 
@@ -769,6 +765,7 @@ bool QEditor::flag(EditFlag f) const
 */
 void QEditor::setFlag(EditFlag f, bool b)
 {
+	bool changed = flag(f) != b;
 	if ( b )
 	{
 		m_state |= f;
@@ -776,7 +773,7 @@ void QEditor::setFlag(EditFlag f, bool b)
 		m_state &= ~f;
 	}
 
-	if ( f == LineWrap || f == HardLineWrap || f==LineWidthConstraint)
+    if ( f == LineWrap || f == HardLineWrap || f==LineWidthConstraint)
 	{
 		m_doc->impl()->setHardLineWrap(flag(HardLineWrap));
 		m_doc->impl()->setLineWidthConstraint(flag(LineWidthConstraint));
@@ -801,6 +798,8 @@ void QEditor::setFlag(EditFlag f, bool b)
 		// TODO : only update cpos if cursor used to be visible?
 		ensureCursorVisible();
 	}
+	if (changed && f == VerticalOverScroll)
+		setVerticalScrollBarMaximum();
 
 }
 
@@ -1000,7 +999,6 @@ bool QEditor::saveCopy(const QString& filename){
 	QString txt = m_doc->text(flag(RemoveTrailing), flag(PreserveTrailingIndent));
 	QByteArray data =  m_doc->codec() ? m_doc->codec()->fromUnicode(txt) : txt.toLocal8Bit();
 
-#if QT_VERSION >= 0x050100
 	if (m_useQSaveFile) {
 		QSaveFile file(filename);
 		if (file.open(QIODevice::WriteOnly)) {
@@ -1022,9 +1020,6 @@ bool QEditor::saveCopy(const QString& filename){
 	} else {
 		return writeToFile(filename, data);
 	}
-#else
-	return writeToFile(filename, data);
-#endif
 }
 
 /*!
@@ -1044,7 +1039,7 @@ bool QEditor::writeToFile(const QString &filename, const QByteArray &data) {
 
 	// check available disk space
 	quint64 freeBytes;
-	while (1) {
+	while (true) {
 		if (!getDiskFreeSpace(QFileInfo(filename).canonicalPath(), freeBytes)) break;
 		if (static_cast<quint64>(data.size()) < freeBytes) break;
 
@@ -1173,7 +1168,7 @@ void QEditor::saveEmergencyBackup(const QString& filename){
 
 		sucessfullySaved = f.write(data) == data.size();
 		f.flush();
-	} while (0);
+	} while (false);
 
 	if (!sucessfullySaved)
 		QFile::remove(filename);
@@ -1260,18 +1255,16 @@ void QEditor::fileChanged(const QString& file)
 		{
 			watcher()->removeWatch(QString(), this); //no duplicated questions
 			
-			int ret = QMessageBox::warning(this,
-			                               tr("File changed"),
-			                               tr(
-			                                 "%1\nhas been modified by another application.\n\n"
-			                                 "Undo/Redo stack would be discarded by the auto-reload.\n"
-			                                 "Do you wish to keep up to date by reloading the file?\n\n"
-			                                 "(Note: You can permanently enable silent reloading in the options.)"
-			                                 ).arg(fileName()),
-			                               QMessageBox::Yes
-			                               |
-			                               QMessageBox::No
-			                               );
+			int ret = QMessageBox::warning(
+			              this, tr("File changed"),
+			              tr("%1\n"
+			                 "was changed outside of TeXstudio. Reload from disk?\n\n"
+			                 "Notes:\n"
+			                 "- Reloading overwrites the editor content with the file from disk. This cannot be undone.\n"
+			                 "- You can permanently enable silent reloading in the options."
+			              ).arg(fileName()),
+			                QMessageBox::Yes | QMessageBox::No
+			              );
 
 			if ( ret == QMessageBox::No )
 				autoReload = false;
@@ -1484,7 +1477,7 @@ QAction* QEditor::action(const QString& s)
 {
 	QHash<QString, QAction*>::const_iterator it = m_actions.constFind(s);
 
-	return it != m_actions.constEnd() ? *it : 0;
+    return it != m_actions.constEnd() ? *it : nullptr;
 }
 
 /*!
@@ -2077,7 +2070,7 @@ void QEditor::addPlaceHolder(const PlaceHolder& p, bool autoUpdate)
 	{
 		int mirrorLen = ph.length;
 		if (ph.affector)
-			mirrorLen = ph.affector->affect(0, ph.cursor.selectedText(), m_placeHolders.size()-1, i).length();
+            mirrorLen = ph.affector->affect(nullptr, ph.cursor.selectedText(), m_placeHolders.size()-1, i).length();
 
 
 		ph.mirrors[i].setAutoUpdated(autoUpdate);
@@ -2095,7 +2088,7 @@ void QEditor::addPlaceHolderMirror(int placeHolderId, const QDocumentCursor& c){
 	ph.mirrors << c;
 	ph.mirrors.last().setAutoUpdated(true);
 	ph.mirrors.last().setAutoErasable(true);
-	int mirrorLen = ph.affector ? ph.affector->affect(0, ph.cursor.selectedText(), placeHolderId, ph.mirrors.size()-1).length() : ph.length;
+    int mirrorLen = ph.affector ? ph.affector->affect(nullptr, ph.cursor.selectedText(), placeHolderId, ph.mirrors.size()-1).length() : ph.length;
 	ph.mirrors.last().movePosition(mirrorLen, QDocumentCursor::NextCharacter, QDocumentCursor::KeepAnchor);
 }
 
@@ -2249,7 +2242,7 @@ void QEditor::setPlaceHolder(int i, bool selectCursors)
 	for ( int j=0; j< ph.mirrors.size(); j++)
 	{
 		QDocumentCursor &mc = ph.mirrors[j];
-		QString mirrored = ph.affector ? ph.affector->affect(0, base, i, j) : base;
+        QString mirrored = ph.affector ? ph.affector->affect(nullptr, base, i, j) : base;
 		if (mc.selectedText()!=mirrored){
 			//qDebug() << "resync placeholder mirror for " << m_curPlaceHolder << " mirror "<<j << " was: " << mc.selectedText() << " should be " << cc.selectedText() << " from " << cc.anchorLineNumber() << ":" << cc.anchorColumnNumber() << "->" << cc.lineNumber() << ":"<<cc.columnNumber()<<"\n";
 			//if mirror synchronization is broken => resyncronize
@@ -2349,7 +2342,7 @@ void QEditor::setCompletionEngine(QCodeCompletionEngine *e)
 {
 	if ( m_completionEngine )
 	{
-		m_completionEngine->setEditor(0);
+        m_completionEngine->setEditor(nullptr);
 		m_completionEngine->deleteLater();
 	}
 
@@ -2909,6 +2902,12 @@ void QEditor::selectNothing(){
 	setCursor(cur);
 }
 
+void QEditor::selectExpand(QDocumentCursor::SelectionType selectionType){
+	m_cursor.expandSelect(selectionType);
+	for (int i=0;i<m_mirrors.size();i++)
+		m_mirrors[i].expandSelect(selectionType);
+}
+
 /*!
  * \brief searches for the next occurence of the text in the last selection and
  * selects this additionally. If there is no selection, the word or command under
@@ -2976,6 +2975,27 @@ void QEditor::selectExpandToNextLine()
  */
 void QEditor::selectAllOccurences()
 {
+	selectOccurence(false, false, true);
+}
+void QEditor::selectNextOccurence()
+{
+	selectOccurence(false, false, false);
+}
+void QEditor::selectPrevOccurence()
+{
+	selectOccurence(true, false, false);
+}
+void QEditor::selectNextOccurenceKeepMirror()
+{
+	selectOccurence(false, true, false);
+}
+void QEditor::selectPrevOccurenceKeepMirror()
+{
+	selectOccurence(true, true, false);
+}
+void QEditor::selectOccurence(bool backward, bool keepMirrors, bool all)
+{
+	//backward and all are exclusive
 	if (!m_cursor.hasSelection()) {
 		m_cursor.select(QDocumentCursor::WordOrCommandUnderCursor);
 	}
@@ -2995,6 +3015,9 @@ void QEditor::selectAllOccurences()
 	bool atBoundaries = (cStart.atLineStart() || !cStart.previousChar().isLetterOrNumber())
 	                 && (cEnd.atLineEnd() || !cEnd.nextChar().isLetterOrNumber());
 
+	QList<QDocumentCursor> cursors;
+	if (keepMirrors) cursors = this->cursors();
+
 	// TODO: this is a quick solution: using the search panel to select all matches
 	//       1. initialize the search with the required parameters
 	//       2. select all matches
@@ -3002,11 +3025,32 @@ void QEditor::selectAllOccurences()
 	// It would be better to be able to perform the search and select without interfering
 	// with the search panel UI.
 	find(text, false, false, isWord && atBoundaries, true);
-	selectAllMatches();
+	if (all) selectAllMatches();
+	else if (backward) {
+		findPrev();
+		findPrev();
+	} else {
+		//findNext(); find above already searched one
+	}
 	relayPanelCommand("Search", "closeElement", QList<QVariant>() << true);
+
+	if (keepMirrors) m_mirrors = cursors;
 
 	emitCursorPositionChanged();
 	viewport()->update();
+}
+
+void QEditor::setVerticalScrollBarMaximum()
+{
+	if (!m_doc) return;
+	const QSize viewportSize = viewport()->size();
+	int viewportHeight = viewportSize.height();
+	if (flag(VerticalOverScroll))
+		viewportHeight /= 2;
+	const int ls = m_doc->getLineSpacing();
+	QScrollBar* vsb = verticalScrollBar();
+	vsb->setMaximum(qMax(0, 1 + (m_doc->height() - viewportHeight) / ls));
+	vsb->setPageStep(viewportSize.height() / ls);
 }
 
 /*!
@@ -3025,8 +3069,8 @@ bool QEditor::event(QEvent *e)
 	// qcodedit ...
 	bool r = QAbstractScrollArea::event(e);
 
-	if ( (e->type() == QEvent::Resize || e->type() == QEvent::Show) && m_doc )
-		verticalScrollBar()->setMaximum(qMax(0, 1 + (m_doc->height() - viewport()->height()) / m_doc->getLineSpacing()));
+	if ( (e->type() == QEvent::Resize || e->type() == QEvent::Show) )
+		setVerticalScrollBarMaximum();
 
     if ( e->type() == QEvent::Resize && flag(LineWrap)  && m_doc)
 	{
@@ -3158,7 +3202,7 @@ void QEditor::timerEvent(QTimerEvent *e)
 
 		if ( m_cursor.hasSelection() )
 			on &= style()->styleHint(QStyle::SH_BlinkCursorWhenTextSelected,
-									0,
+                                    nullptr,
 									this) != 0;
 
 		setFlag(CursorOn, on);
@@ -3179,6 +3223,33 @@ void QEditor::timerEvent(QTimerEvent *e)
 		//startDrag();
 	} else if ( id == m_click.timerId() ) {
 		m_click.stop();
+	} else if ( id == m_autoScroll.timerId() ) {
+		const QPoint cPos = viewport()->mapFromGlobal(QCursor::pos());
+		const QPoint mousePos = mapToContents(cPos);
+
+		QDocumentCursor newCursor = cursorForPosition(mousePos);
+
+		if ( newCursor.isNull() ) {
+			newCursor = QDocumentCursor(m_doc, 0, 0);
+			if( mousePos.x() >= 0 ) {
+				newCursor.movePosition( 1, QDocumentCursor::End );
+			}
+		}
+
+		if (m_multiClickCursor.isValid()) {
+			m_cursor.select(m_multiClickCursor.lineNumber(), m_multiClickCursor.columnNumber(),
+			                newCursor.lineNumber(), newCursor.columnNumber()
+			                );
+			m_cursor.expandSelect(m_multiClickCursor.property("isTripleClick").toBool() ? QDocumentCursor::LineUnderCursor : m_doubleClickSelectionType);
+		} else {
+			m_cursor.setSelectionBoundary(newCursor);
+		}
+
+		ensureCursorVisible();
+		//emit clearAutoCloseStack();
+		emitCursorPositionChanged();
+
+		repaintCursor();
 	}
 }
 
@@ -3207,7 +3278,7 @@ static int min(const QList<QDocumentCursor>& l)
 
 bool QEditor::protectedCursor(const QDocumentCursor& c) const
 {
-        Q_UNUSED(c);
+        Q_UNUSED(c)
 	/*if ( c.hasSelection() )
 	{
 		int line = qMin(c.lineNumber(), c.anchorLineNumber()), end = qMax(c.lineNumber(), c.anchorLineNumber());
@@ -3378,11 +3449,9 @@ void QEditor::keyPressEvent(QKeyEvent *e)
 		if (op == NoOperation) {
 			QString text = e->text();
 
-#if QT_VERSION >= 0x050000
 #if defined(Q_OS_MAC) || defined(Q_OS_LINUX)
             if(e->modifiers()&(Qt::MetaModifier|Qt::ControlModifier))
                 break;
-#endif
 #endif
             if ( text.isEmpty())
 				break;
@@ -3458,7 +3527,7 @@ void QEditor::keyPressEvent(QKeyEvent *e)
 
 	if ( !handled)
 	{
-		QAbstractScrollArea::keyPressEvent(e);
+        QAbstractScrollArea::keyPressEvent(e);
 
 		foreach ( QEditorInputBindingInterface *b, m_bindings )
 			b->postKeyPressEvent(e, this);
@@ -3560,10 +3629,6 @@ void QEditor::inputMethodEvent(QInputMethodEvent* e)
         }
 
 		m_cursor.insertText(e->commitString());
-#if (QT_VERSION < 0x040700) && (defined(Q_OS_MAC))
-		if(!m_disableAccentHack)
-			m_blockKey=true;
-#endif
 
 		m_cursor.endEditBlock();
 	}
@@ -3614,6 +3679,14 @@ void QEditor::mouseMoveEvent(QMouseEvent *e)
 		}
 
 		repaintCursor();
+
+		if( !(viewport()->rect().contains(e->pos())) ) {
+			//don't accelerate scrolling just because the mouse is moving
+			if( m_autoScroll.isActive() ) break;
+			m_autoScroll.start(33, this);
+		} else {
+			m_autoScroll.stop();
+		}
 
 		const QPoint mousePos = mapToContents(e->pos());
 
@@ -3681,6 +3754,13 @@ void QEditor::mousePressEvent(QMouseEvent *e)
 			m_click.stop();
 		} else {
 			QDocumentCursor cursor = cursorForPosition(p);
+
+			if (!cursor.isValid() && !cursor.line().isValid() && cursor.lineNumber() > 0) {
+				// clicked beyond end of doc: lineNumber is last line + 1
+				// move cursor to end of doc.
+				cursor.setLineNumber(cursor.lineNumber() - 1);
+				cursor.movePosition(1, QDocumentCursor::EndOfLine);
+			}
 
 			if ( cursor.isNull() )
 				break;
@@ -3782,6 +3862,7 @@ void QEditor::mouseReleaseEvent(QMouseEvent *e)
 		if ( b->mouseReleaseEvent(e, this) )
 			return;
 
+	m_autoScroll.stop( );
 	repaintCursor();
 
 	if ( flag(MaybeDrag) )
@@ -4090,7 +4171,7 @@ void QEditor::wheelEvent(QWheelEvent *e)
 {
 	if ( e->modifiers() & Qt::ControlModifier && flag(MouseWheelZoom))
 	{
-		const int delta = e->delta();
+        const int delta = e->angleDelta().y();
 
 		if ( delta > 0 )
 			zoom(1);
@@ -4127,9 +4208,7 @@ void QEditor::resizeEvent(QResizeEvent *)
 	    horizontalScrollBar()->setPageStep(viewportSize.width());
 	}
 
-	const int ls = m_doc->getLineSpacing();
-	verticalScrollBar()->setMaximum(qMax(0, 1 + (m_doc->height() - viewportSize.height()) / ls));
-	verticalScrollBar()->setPageStep(viewportSize.height() / ls);
+	setVerticalScrollBarMaximum();
 
 	emit visibleLinesChanged();
 	//qDebug("page step : %i", viewportSize.height() / ls);
@@ -5041,7 +5120,6 @@ void QEditor::insertText(QDocumentCursor& c, const QString& text)
     //prepare for auto bracket insertion
     QString writtenBracket;
     QString autoBracket;
-    QDocumentCursor previousBracketMatch;
     bool autoComplete = false;
     if (flag(AutoCloseChars) && !autoOverridePlaceHolder
             && (m_curPlaceHolder<0 || m_curPlaceHolder>=m_placeHolders.size() || m_placeHolders[m_curPlaceHolder].mirrors.isEmpty())
@@ -5056,20 +5134,56 @@ void QEditor::insertText(QDocumentCursor& c, const QString& text)
         if (autoBracket == writtenBracket)
             autoComplete = false; //don't things like "" or $$ (assuming only single letter self closing brackets exists)
 
-        int prev = c.line().text().lastIndexOf(writtenBracket, c.columnNumber());
-        if (prev >= 0) {
-            QDocumentCursor prevc = c.document()->cursor(c.lineNumber(), prev, c.lineNumber(), prev + writtenBracket.size() );
-            QList<QList<QDocumentCursor> > matches = languageDefinition()->getMatches(prevc);
-            for (int i=0; i < matches.size(); i++) {
-                if (matches[i][0].selectedText() == writtenBracket) {
-                    previousBracketMatch = matches[i][1].selectionEnd();
-                    break;
-                } else if (matches[i][1].selectedText() == writtenBracket) {
-                    previousBracketMatch = matches[i][0].selectionEnd();
+        // no idea what the following code is supposed to do, it is probably erroneous
+        // e.g {abc} abc |   , insert "{" at | will give a false match to the previous closing brace
+        // check what would be the matching element if we inserted it
+        if(autoComplete){
+            c.insertText(text);
+            // check if we are handling a multi-chrachter parenthesis, e.g. \[
+            QString newAutoBracket;
+            const QString& lineText = c.line().text().mid(0, c.columnNumber());
+            foreach (const QString& s, languageDefinition()->openingParenthesis()){
+                if (s.length() >= text.length() &&  //don't complete bracket of pasted text or codesnippets
+                        lineText.endsWith(s)){
+                    newAutoBracket = languageDefinition()->getClosingParenthesis(s);
+                    writtenBracket = s;
                     break;
                 }
             }
-            if (!previousBracketMatch.isNull()) previousBracketMatch.setAutoUpdated(true);
+            if (newAutoBracket != autoBracket) {
+                autoBracket=newAutoBracket;
+            }
+
+            QDocumentCursor prevc(c);
+            QList<QList<QDocumentCursor> > matches = languageDefinition()->getMatches(prevc);
+            bool found=false;
+            for (int i=0; i < matches.size(); i++) {
+                if (matches[i][0].anchorColumnNumber() == c.anchorColumnNumber()-writtenBracket.size()) {
+                    if(matches[i][1].selectedText()==autoBracket){
+                        prevc=matches[i][1];
+                        found=true;
+                        break;
+                    }
+                } else if (matches[i][1].anchorColumnNumber()==c.anchorColumnNumber()-writtenBracket.size()) {
+                    if(matches[i][0].selectedText()==autoBracket){
+                        prevc=matches[i][0];
+                        found=true;
+                        break;
+                    }
+                }
+            }
+            for(int k=0;k<text.size();k++){
+                c.deletePreviousChar();
+            }
+            if(found){
+                // check whether the found element has a matching element without our insertion
+                prevc.flipSelection();
+                matches = languageDefinition()->getMatches(prevc);
+                if(matches.isEmpty()){
+                    // no opening element without our insertion, so our insertion should *not* be autoclosed
+                    autoComplete=false;
+                }
+            }
         }
     }
 
@@ -5225,89 +5339,34 @@ void QEditor::insertText(QDocumentCursor& c, const QString& text)
     }
 
     //bracket auto insertion
-    if (autoComplete){
-        QString newAutoBracket;
-        const QString& lineText = c.line().text().mid(0, c.columnNumber());
-        foreach (const QString& s, languageDefinition()->openingParenthesis())
-            if (s.length() >= text.length() &&  //don't complete bracket of pasted text or codesnippets
-                    lineText.endsWith(s)){
-                newAutoBracket = languageDefinition()->getClosingParenthesis(s);
-                writtenBracket = s;
-                break;
-            }
-        if (newAutoBracket != autoBracket) { //we complete a bracket which was already partly written
-            autoBracket = newAutoBracket;
-            previousBracketMatch = QDocumentCursor();
+    if (autoComplete) {
+	if (!cutBuffer.isEmpty()) {
+	    c.insertText(cutBuffer+autoBracket);
+	    c.movePosition(cutBuffer.length()+autoBracket.length(), QDocumentCursor::PreviousCharacter, QDocumentCursor::MoveAnchor);
+	    c.movePosition(cutBuffer.length(), QDocumentCursor::NextCharacter, QDocumentCursor::KeepAnchor);
+	}
+
+	if (flag(QEditor::AutoInsertLRM) && c.isRTL() && autoBracket == "}")
+	    autoBracket = "}" + QString(QChar(LRM));
+
+	QDocumentCursor copiedCursor = c.selectionEnd();
+	PlaceHolder ph(autoBracket.length(),copiedCursor);
+	ph.autoOverride = true;
+	ph.cursor.handle()->setFlag(QDocumentCursorHandle::AutoUpdateKeepBegin);
+	ph.cursor.handle()->setFlag(QDocumentCursorHandle::AutoUpdateKeepEnd);
+
+	if (!cutBuffer.isEmpty()) {
+	    addPlaceHolder(ph);
+	    cutBuffer.clear();
+	} else {
+	    copiedCursor.insertText(autoBracket);
+        if(!autoBracket.startsWith('\\')){ // don't set placeholder for commands e.g. \} or \left as it pretty much inhibits enterring normal commands
+            addPlaceHolder(ph);
         }
-        //a opening parenthesis was written, perform checks if it should be auto closed
-        autoComplete = false;
-        if (!autoBracket.isEmpty()) {
-            QList<QList<QDocumentCursor> > matches = languageDefinition()->getMatches(c);
-            QDocumentCursor matchingCloseBracket;
-            for (int i=0; i < matches.size(); i++) {
-                if (matches[i][0].selectedText() == writtenBracket) {
-                    matchingCloseBracket = matches[i][1];
-                    break;
-                } else if (matches[i][1].selectedText() == writtenBracket) {
-                    matchingCloseBracket = matches[i][0];
-                    break;
-                }
-            }
-
-            autoComplete = matchingCloseBracket.isNull()
-                    || matchingCloseBracket.selectedText() != autoBracket //bracket mismatch
-                    || (!previousBracketMatch.isNull() &&
-                        matchingCloseBracket.anchorLineNumber() == matchingCloseBracket.lineNumber() &&
-                        matchingCloseBracket.selectionEnd() == previousBracketMatch.selectionEnd());
-            if (!autoComplete && matchingCloseBracket.isValid()) {
-                // inserting a bracket may steal the closing bracket from a following pair.
-                // If that's the case, we have a matching close for the new insert, but a unmatched open bracket
-                // of the same type between the newly inserted bracket and its now-matching closing bracket.
-                // Then, auto-insertion of a closing bracket is required as well.
-                QDocumentCursor mismatch = languageDefinition()->getNextMismatch(c);
-                while (mismatch.isValid()
-                       && (mismatch.lineNumber() < matchingCloseBracket.lineNumber()
-                           || (mismatch.lineNumber() == matchingCloseBracket.lineNumber() && mismatch.columnNumber() < matchingCloseBracket.columnNumber()))
-                       ){
-                    if (writtenBracket.endsWith(mismatch.selectedText())) {
-                        // subsequent opening bracket found, that has now a mismatch
-                        // note: endsWith is a workaround, because in "\( \( \)" the unmatched bracket is detected as "("
-                        autoComplete = true;
-                        break;
-                    }
-                    QDocumentCursor cEnd = mismatch.selectionEnd();
-                    cEnd.movePosition(1);
-                    mismatch = languageDefinition()->getNextMismatch(cEnd);
-                }
-            }
-        }
-
-        if (autoComplete) {
-            if (!cutBuffer.isEmpty()) {
-                c.insertText(cutBuffer+autoBracket);
-                c.movePosition(cutBuffer.length()+autoBracket.length(), QDocumentCursor::PreviousCharacter, QDocumentCursor::MoveAnchor);
-                c.movePosition(cutBuffer.length(), QDocumentCursor::NextCharacter, QDocumentCursor::KeepAnchor);
-            }
-
-            if (flag(QEditor::AutoInsertLRM) && c.isRTL() && autoBracket == "}")
-                autoBracket = "}" + QString(QChar(LRM));
-
-            QDocumentCursor copiedCursor = c.selectionEnd();
-            PlaceHolder ph(autoBracket.length(),copiedCursor);
-            ph.autoOverride = true;
-            ph.cursor.handle()->setFlag(QDocumentCursorHandle::AutoUpdateKeepBegin);
-            ph.cursor.handle()->setFlag(QDocumentCursorHandle::AutoUpdateKeepEnd);
-
-            if (!cutBuffer.isEmpty()) {
-                addPlaceHolder(ph);
-                cutBuffer.clear();
-            } else {
-                copiedCursor.insertText(autoBracket);
-                addPlaceHolder(ph);
-                c.movePosition(autoBracket.length(), QDocumentCursor::PreviousCharacter, QDocumentCursor::MoveAnchor);
-            }
-        }
+	    c.movePosition(autoBracket.length(), QDocumentCursor::PreviousCharacter, QDocumentCursor::MoveAnchor);
+	}
     }
+
 
     if (beginNewMacro)
         m_doc->endMacro();
@@ -5503,7 +5562,6 @@ void QEditor::ensureCursorVisible(const QDocumentCursor& cursor, MoveFlags mflag
         ytarget-=surrounding;
         if(ytarget<0)
             ytarget=0;
-#if QT_VERSION >= 0x040600
 		int absDeltaY = qAbs(ytarget - verticalScrollBar()->value());
 		if (flag(QEditor::SmoothScrolling) && mflags&Animated) {
 			if (!m_scrollAnimation) {
@@ -5527,9 +5585,6 @@ void QEditor::ensureCursorVisible(const QDocumentCursor& cursor, MoveFlags mflag
 		} else {
 			verticalScrollBar()->setValue(ytarget);
 		}
-#else
-		verticalScrollBar()->setValue(ytarget);
-#endif
     }
 
 	int xval = horizontalOffset(),
@@ -5839,7 +5894,7 @@ void QEditor::insertFromMimeData(const QMimeData *d)
 			bool slow = txt.size() > 5*1024;
 			if (slow) emit slowOperationStarted();
 			
-			bool macroing = isMirrored() || m_mirrors.size();
+            bool macroing = true; //isMirrored() || m_mirrors.size();
 
 			if ( macroing )
 				m_doc->beginMacro();
@@ -6049,15 +6104,14 @@ void QEditor::documentWidthChanged(int newWidth)
 	Vertical scrollbar is updated here (maximum is changed
 	and value is modified if needed to ensure that the cursor is visible)
 */
-void QEditor::documentHeightChanged(int newHeight)
+void QEditor::documentHeightChanged(int)
 {
 
 	if ( flag(LineWrap) )
 	{
 		m_doc->setWidthConstraint(wrapWidth());
 	}
-	const int ls = document()->getLineSpacing();
-	verticalScrollBar()->setMaximum(qMax(0, 1 + (newHeight - viewport()->height()) / ls));
+	setVerticalScrollBarMaximum();
 	//ensureCursorVisible();
 }
 
@@ -6253,7 +6307,7 @@ void QEditor::paintMarks(){
 }
 
 void QEditor::addMark(QDocumentLineHandle *dlh, QColor color, QString type){
-    if(dlh==NULL)
+    if(dlh==nullptr)
         return;
     MarkedScrollBar *scrlBar=qobject_cast<MarkedScrollBar*>(verticalScrollBar());
     scrlBar->addMark(dlh,color,type);

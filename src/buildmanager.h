@@ -26,8 +26,10 @@ Q_DECLARE_METATYPE(LatexCompileResult)
 enum RunCommandFlag {
 	RCF_SHOW_STDOUT = 1,    //bibliography command (=> show stdout)
 	RCF_COMPILES_TEX = 4, //latex command, show the log
-	RCF_RERUNNABLE = 8,   //rerun if there are errors (usually RCF_RERUNNABLE is set iff RCF_COMPILES_TEX is set, except for latexmk)
-	RCF_RERUN = 16,
+	RCF_RERUNNABLE = 8, 	// set if the command provides output information that
+				// tells you when it must be rerun. Usually RCF_RERUNNABLE
+				// is set iff RCF_COMPILES_TEX is set, except for latexmk.
+	RCF_RERUN = 16,         // User has allowed program rerun through the command settings
 	RCF_CHANGE_PDF = 32,    //pdflatex (=> lock pdf)
 	RCF_SINGLE_INSTANCE = 64,//viewer (=> start only once)
 	RCF_WAITFORFINISHED = 128
@@ -68,6 +70,8 @@ struct CommandInfo {
 
 	QString getPrettyCommand() const;
 	QString getBaseName() const { return baseName; }
+    QString getProgramName() const;
+    QString getProgramNameUnquoted() const;
 private:
 	friend class BuildManager;
 	QString baseName;
@@ -76,8 +80,6 @@ private:
 public:
 	static QString getProgramName(const QString &commandLine);
 	static QString getProgramNameUnquoted(const QString &commandLine);
-private:
-	QString getProgramName() const;
 };
 
 struct ExpandingOptions {
@@ -111,9 +113,9 @@ public:
 	static const QString TXS_CMD_PREFIX;
 	static const QString CMD_LATEX, CMD_PDFLATEX, CMD_XELATEX, CMD_LUALATEX, CMD_LATEXMK;
 	static const QString CMD_VIEW_DVI, CMD_VIEW_PS, CMD_VIEW_PDF, CMD_VIEW_LOG;
-	static const QString CMD_DVIPNG, CMD_DVIPS, CMD_DVIPDF, CMD_PS2PDF, CMD_GS, CMD_MAKEINDEX, CMD_TEXINDY, CMD_MAKEGLOSSARIES, CMD_METAPOST, CMD_ASY, CMD_BIBTEX, CMD_BIBTEX8, CMD_BIBER, CMD_SVN, CMD_SVNADMIN;
+    static const QString CMD_DVIPNG, CMD_DVIPS, CMD_DVIPDF, CMD_PS2PDF, CMD_GS, CMD_MAKEINDEX, CMD_TEXINDY, CMD_MAKEGLOSSARIES, CMD_METAPOST, CMD_ASY, CMD_BIBTEX, CMD_BIBTEX8, CMD_BIBER, CMD_SVN, CMD_SVNADMIN, CMD_GIT, CMD_TEXDOC;
 	static const QString CMD_COMPILE, CMD_VIEW, CMD_BIBLIOGRAPHY, CMD_INDEX, CMD_GLOSSARY, CMD_QUICK, CMD_RECOMPILE_BIBLIOGRAPHY;
-	static const QString CMD_VIEW_PDF_INTERNAL, CMD_INTERNAL_PRE_COMPILE, CMD_CONDITIONALLY_RECOMPILE_BIBLIOGRAPHY;
+	static const QString CMD_VIEW_PDF_INTERNAL, CMD_INTERNAL_PRE_COMPILE, CMD_CONDITIONALLY_RECOMPILE_BIBLIOGRAPHY, CMD_TERMINAL_EXTERNAL;
 
 	static QString chainCommands(const QString &a);
 	static QString chainCommands(const QString &a, const QString &b);
@@ -126,6 +128,7 @@ public:
 	static QString replaceEnvironmentVariables(const QString &s, const QHash<QString, QString> &variables, bool compareNamesToUpper);
 	static QString resolvePaths(QString paths);
 	static QStringList parseExtendedCommandLine(QString str, const QFileInfo &mainFile, const QFileInfo &currentFile = QFileInfo(), int currentLine = 0);
+	static QFileInfo parseExtendedSelectFile(QString &command, const QFileInfo &mainFile, const QFileInfo &currentFile);
 	static QString extractOutputRedirection(const QString &commandLine, QString &stdOut, QString &stdErr);
 	ExpandedCommands expandCommandLine(const QString &str, ExpandingOptions &expandingOptions);
 	RunCommandFlags getSingleCommandFlags(const QString &command) const;
@@ -137,17 +140,13 @@ public:
 
 	void checkLatexConfiguration(bool &noWarnAgain);
 
-	QAction *stopBuildAction()
-	{
-		return m_stopBuildAction;
-	}
 
 public slots:
-	bool runCommand(const QString &unparsedCommandLine, const QFileInfo &mainFile, const QFileInfo &currentFile = QFileInfo(), int currentLine = 0, QString *buffer = 0, QTextCodec *codecForBuffer = 0);
+    bool runCommand(const QString &unparsedCommandLine, const QFileInfo &mainFile, const QFileInfo &currentFile = QFileInfo(), int currentLine = 0, QString *buffer = nullptr, QTextCodec *codecForBuffer = nullptr, QString *errorMsg = nullptr);
 	Q_INVOKABLE void killCurrentProcess();
 private:
 	bool checkExpandedCommands(const ExpandedCommands &expandedCommands);
-	bool runCommandInternal(const ExpandedCommands &expandedCommands, const QFileInfo &mainFile, QString *buffer = 0, QTextCodec *codecForBuffer = 0);
+    bool runCommandInternal(const ExpandedCommands &expandedCommands, const QFileInfo &mainFile, QString *buffer = nullptr, QTextCodec *codecForBuffer = nullptr, QString *errorMsg = nullptr);
 public:
 	//creates a process object with the given command line (after it is changed by an implcit call to parseExtendedCommandLine)
 	//ProcessX* newProcess(const QString &unparsedCommandLine, const QString &mainFile, const QString &currentFile, int currentLine=0, bool singleInstance = false);
@@ -161,7 +160,7 @@ public:
 
 	static QString createTemporaryFileName(); //don't forget to remove the file!
 
-	void preview(const QString &preamble, const PreviewSource &source, const QString &masterFile, QTextCodec *outputCodec = 0);
+    void preview(const QString &preamble, const PreviewSource &source, const QString &masterFile, QTextCodec *outputCodec = nullptr);
 	void clearPreviewPreambleCache();
 
 	Q_INVOKABLE bool isCommandDirectlyDefined(const QString &id) const;
@@ -203,7 +202,7 @@ signals:
     void clearLogs();
 	void previewAvailable(const QString &filename, const PreviewSource &source);
 
-	void commandLineRequested(const QString &cmdId, QString *result, bool *user = 0);
+    void commandLineRequested(const QString &cmdId, QString *result, bool *user = nullptr);
 	void runInternalCommand(const QString &cmdId, const QFileInfo &mainfile, const QString &options);
 
 	void latexCompiled(LatexCompileResult *rerun);
@@ -211,12 +210,14 @@ signals:
 	void beginRunningSubCommand(ProcessX *p, const QString &commandMain, const QString &subCommand, const RunCommandFlags &flags);
 	void endRunningSubCommand(ProcessX *p, const QString &commandMain, const QString &subCommand, const RunCommandFlags &flags);
 	void endRunningCommands(const QString &commandMain, bool latex, bool pdf, bool asyncPdf);
+    void buildRunning(bool c);
 private:
 
 	void initDefaultCommandNames();
+	static QString guessTerminalExternal(void);
 	void checkOSXElCapitanDeprecatedPaths(QSettings &settings, const QStringList &commands);
 
-	CommandInfo &registerCommand(const QString &id, const QString &basename, const QString &displayName, const QString &args, const QString &oldConfig = "", GuessCommandLineFunc guessFunc = 0, bool user = false);
+    CommandInfo &registerCommand(const QString &id, const QString &basename, const QString &displayName, const QString &args, const QString &oldConfig = "", GuessCommandLineFunc guessFunc = nullptr, bool user = false);
 	CommandInfo &registerCommand(const QString &id, const QString &displayname, const QStringList &alternatives, const QString &oldConfig = "", const bool metaCommand = true, const QStringList simpleDescriptions = QStringList());
 	Q_INVOKABLE QString getCommandLine(const QString &id, bool *user);
 	friend class ProcessX;
@@ -236,7 +237,7 @@ public:
 	static QString autoRerunCommands;
 	static QString additionalSearchPaths, additionalLogPaths, additionalPdfPaths;
 
-	QString findFile(const QString &baseName, const QStringList &searchPaths);
+	static QString findCompiledFile(const QString &compiledFilename, const QFileInfo &mainFile);
 	void addPreviewFileName(QString fn)
 	{
 		if (!previewFileNames.contains(fn))
@@ -244,7 +245,6 @@ public:
 	}
 
 private:
-	QAction *m_stopBuildAction;
 	QStringList previewFileNames;
 	QMap<QString, PreviewSource> previewFileNameToSource;
 	QHash<QString, QString> preambleHash;
@@ -263,7 +263,7 @@ class ProcessX: public QProcess
 	Q_OBJECT
 
 public:
-	ProcessX(BuildManager *parent = 0, const QString &assignedCommand = "", const QString &fileToCompile = "");
+    ProcessX(BuildManager *parent = nullptr, const QString &assignedCommand = "", const QString &fileToCompile = "");
 	static QString reformatShellLiteralQuotes(QString cmd);
 	void startCommand();
 	bool waitForStarted(int timeOut = 30000);
@@ -273,6 +273,7 @@ public:
 	void setShowStdout(bool show);
 	QString *getStdoutBuffer();
 	void setStdoutBuffer(QString *buffer);
+    void setStderrBuffer(QString *buffer);
 	void setStdoutCodec(QTextCodec *codec);
 	bool showStderr() const;
 	void setShowStderr(bool show);
@@ -292,6 +293,7 @@ signals:
 	void processNotification(const QString &message);
 	void standardOutputRead(const QString &data);
 	void standardErrorRead(const QString &data);
+    void processFinished();
 private slots:
 	void onStarted();
 	void onError(QProcess::ProcessError error);
@@ -306,7 +308,7 @@ private:
 	QString cmd;
 	QString file;
 	bool isStarted, ended, stderrEnabled, stdoutEnabled, stdoutEnabledOverrideOn;
-	QString *stdoutBuffer;
+    QString *stdoutBuffer,*stderrBuffer;
 	QTextCodec *stdoutCodec;
 	QStringList overriddenEnvironment;
 	QString subCommandName, subCommandPrimary;

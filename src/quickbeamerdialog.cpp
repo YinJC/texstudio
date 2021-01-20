@@ -38,14 +38,12 @@ QuickBeamerDialog::QuickBeamerDialog(QWidget *parent, const QString &name)
 	labelImage->setMaximumSize(imgWidth, imgHeight);
 	ui.scrollArea->setMinimumWidth(imgWidth + scrollbarWidth + margin);
 	ui.scrollArea->setMaximumWidth(imgWidth + scrollbarWidth + margin);
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
 	if (qApp->devicePixelRatio() == 2) {
 		labelImage->setMinimumSize(imgWidth / 2, imgHeight / 2);
 		labelImage->setMaximumSize(imgWidth / 2, imgHeight / 2);
 		ui.scrollArea->setMinimumWidth(imgWidth / 2 + scrollbarWidth + margin);
 		ui.scrollArea->setMaximumWidth(imgWidth / 2 + scrollbarWidth + margin);
 	}
-#endif
 	ui.scrollArea->setBackgroundRole(QPalette::Dark);
 	ui.scrollArea->setWidget(labelImage);
 }
@@ -59,6 +57,8 @@ void QuickBeamerDialog::registerOptions(ConfigManagerInterface &configManager)
 	configManagerInterface = &configManager;
 	configManager.registerOption("Beamer/Encoding", &document_encoding, "utf8");
 }
+
+extern QStringList babelLanguages;
 
 void QuickBeamerDialog::Init()
 {
@@ -83,9 +83,11 @@ void QuickBeamerDialog::Init()
 	ui.comboBoxTheme->addItem( "Boadilla" );
 	ui.comboBoxTheme->addItem( "CambridgeUS" );
 	ui.comboBoxTheme->addItem( "Copenhagen" );
+	ui.comboBoxTheme->addItem( "Cuerna" );
 	ui.comboBoxTheme->addItem( "Darmstadt" );
 	ui.comboBoxTheme->addItem( "Dresden" );
 	ui.comboBoxTheme->addItem( "EastLansing" );
+	ui.comboBoxTheme->addItem( "focus" );
 	ui.comboBoxTheme->addItem( "Frankfurt" );
 	ui.comboBoxTheme->addItem( "Goettingen" );
 	ui.comboBoxTheme->addItem( "Hannover" );
@@ -95,6 +97,7 @@ void QuickBeamerDialog::Init()
 	ui.comboBoxTheme->addItem( "Madrid" );
 	ui.comboBoxTheme->addItem( "Malmoe" );
 	ui.comboBoxTheme->addItem( "Marburg" );
+	ui.comboBoxTheme->addItem( "metropolis" );
 	ui.comboBoxTheme->addItem( "Montpellier" );
 	ui.comboBoxTheme->addItem( "PaloAlto" );
 	ui.comboBoxTheme->addItem( "Pittsburgh" );
@@ -129,22 +132,7 @@ void QuickBeamerDialog::Init()
 	ui.comboBoxEncoding->addItem( "NONE" );
 
 	ui.listWidgetBabel->clear();
-	ui.listWidgetBabel->addItem("arabic" );
-	ui.listWidgetBabel->addItem("czech" );
-	ui.listWidgetBabel->addItem("english" );
-	ui.listWidgetBabel->addItem("farsi" );
-	ui.listWidgetBabel->addItem("finnish" );
-	ui.listWidgetBabel->addItem("french" );
-	ui.listWidgetBabel->addItem("ngerman" );
-	ui.listWidgetBabel->addItem("greek" );
-	ui.listWidgetBabel->addItem("icelandic" );
-	ui.listWidgetBabel->addItem("italian" );
-	ui.listWidgetBabel->addItem("magyar" );
-	ui.listWidgetBabel->addItem("polish" );
-	ui.listWidgetBabel->addItem("portuguese" );
-	ui.listWidgetBabel->addItem("russian" );
-	ui.listWidgetBabel->addItem("slovak" );
-	ui.listWidgetBabel->addItem("spanish" );
+	ui.listWidgetBabel->addItems(babelLanguages);
 
 	configManagerInterface->linkOptionToDialogWidget(&document_encoding, ui.comboBoxEncoding);
 }
@@ -152,9 +140,7 @@ void QuickBeamerDialog::Init()
 void QuickBeamerDialog::updatePreview(const QString &theme)
 {
 	QPixmap pixmap(":/images/beamer/" + theme + ".png");
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
 	if (qApp->devicePixelRatio() == 2) pixmap.setDevicePixelRatio(qApp->devicePixelRatio());
-#endif
 	labelImage->setPixmap(pixmap);
 }
 
@@ -204,11 +190,6 @@ QString QuickBeamerDialog::getNewDocumentText()
 		tag += QString("\\usepackage[T1]{fontenc}\n");
 		tag += QString("\\usepackage{lmodern}\n");
 	}
-
-	if (ui.checkBoxAMS->isChecked())
-		tag += QString("\\usepackage{amsmath}\n\\usepackage{amsfonts}\n\\usepackage{amssymb}\n");
-	if (ui.checkBoxGraphicx->isChecked())
-		tag += QString("\\usepackage{graphicx}\n");
 
     tag += "\\usetheme{" + ui.comboBoxTheme->currentText() + "}\n";
 

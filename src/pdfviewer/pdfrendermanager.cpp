@@ -25,13 +25,23 @@ const int kMaxPageZoom = 1000000;
 const qreal kMaxDpiForFullPage = 1000.0;
 
 
+SetImageForwarder::SetImageForwarder(QObject *parent, QObject *obj, const char *rec, QPixmap img, int pageNr):
+    QObject(parent), obj(obj), rec(rec), img(img), pageNr(pageNr)
+{
+}
+
+void SetImageForwarder::setImage() {
+    QMetaObject::invokeMethod(obj, rec, Q_ARG(QPixmap, img), Q_ARG(int, pageNr));
+    deleteLater();
+}
+
+void SetImageForwarder::forward(int delay) {
+    QTimer::singleShot(delay, this, SLOT(setImage()));
+}
+
 PDFQueue::PDFQueue(QObject *parent): QObject(parent), stopped(true), num_renderQueues(1)
 {
-#if QT_VERSION < 0x040400
-	m_ref.init(1);
-#else
 	m_ref = 1;
-#endif
 }
 
 void PDFQueue::deref()
@@ -70,7 +80,7 @@ PDFRenderManager::PDFRenderManager(QObject *parent, int limitQueues) :
 			queueAdministration->num_renderQueues = QThread::idealThreadCount();
 	}
 	for (int i = 0; i < queueAdministration->num_renderQueues; i++) {
-		PDFRenderEngine *renderQueue = new PDFRenderEngine(0, queueAdministration);
+        auto *renderQueue = new PDFRenderEngine(nullptr, queueAdministration);
 		connect(renderQueue, SIGNAL(sendImage(QImage, int, int)), this, SLOT(addToCache(QImage, int, int)));
 		queueAdministration->renderQueues.append(renderQueue);
 	}
@@ -114,7 +124,7 @@ class HiddenByteArray: public QByteArray
 {
 public:
 	HiddenByteArray(): QByteArray() {}
-	HiddenByteArray(const QString &s): QByteArray(s.toLatin1()) {}
+    explicit HiddenByteArray(const QString &s): QByteArray(s.toLatin1()) {}
 	~HiddenByteArray()
 	{
 		for (int i = 0; i < length(); i++)
@@ -149,12 +159,15 @@ QSharedPointer<Poppler::Document> PDFRenderManager::loadDocument(const QString &
 				return QSharedPointer<Poppler::Document>();
 			}
 			// create document
-			if (loadStrategy == BufferedLoad || (loadStrategy == HybridLoad && queueAdministration->documentData.size() < 50000000))
+			if (loadStrategy == BufferedLoad || (loadStrategy == HybridLoad && queueAdministration->documentData.size() < 50000000)) {
+				if (queueAdministration->documentData.size() < 1024)
+					queueAdministration->documentData.append(QByteArray(1024 - queueAdministration->documentData.size(), (char) 0));
 				docPtr = Poppler::Document::loadFromData(queueAdministration->documentData, ownerPassword, userPassword);
-			else
+			} else {
 				docPtr = Poppler::Document::load(fileName, ownerPassword, userPassword);
+			}
 		}
-	} catch (std::bad_alloc) {
+	} catch (std::bad_alloc &) {
 		error = PopplerErrorBadAlloc;
 		return QSharedPointer<Poppler::Document>();
 	} catch (...) {
@@ -169,7 +182,7 @@ QSharedPointer<Poppler::Document> PDFRenderManager::loadDocument(const QString &
 
 	if (docPtr->isLocked()) {
 		delete docPtr;
-		docPtr = 0;
+        docPtr = nullptr;
 		error = FileLocked;
 		return QSharedPointer<Poppler::Document>();
 	}
@@ -194,43 +207,8 @@ QSharedPointer<Poppler::Document> PDFRenderManager::loadDocument(const QString &
 
 	for (int i = 0; i < queueAdministration->num_renderQueues; i++) {
 
-#ifdef HAS_POPPLER_24
-		// poppler claims to be thread safe ...
 		queueAdministration->renderQueues[i]->setDocument(document);
-#else
-		Poppler::Document *doc;
-		try {
-			if (loadStrategy == BufferedLoad || (loadStrategy == HybridLoad && queueAdministration->documentData.size() < 50000000)) {
-				// poppler is not thread-safe, so each render engine needs a separate Poppler::Document
-				doc = Poppler::Document::loadFromData(queueAdministration->documentData, ownerPassword, userPassword);
-			} else {
-				// Workaround: loadFromData crashes if called with large data for the second time (i==1).
-				// See also bug report https://sourceforge.net/p/texstudio/bugs/710/?page=2
-				// I used a 200 MB file in the tests. Also 150 MB and 66 MB was reported to crash.
-				// Likely an internal Poppler bug. Exact conditions need to be tested so we can file a bug report.
-				doc = Poppler::Document::load(fileName, ownerPassword, userPassword);
-			}
-			QSharedPointer<Poppler::Document> spDoc(doc);
-			queueAdministration->renderQueues[i]->setDocument(spDoc);
-		} catch (std::bad_alloc) {
-			Q_ASSERT(false);
-			error = PopplerErrorBadAlloc;
-			return QSharedPointer<Poppler::Document>();
-		} catch (...) {
-			Q_ASSERT(false);
-			error = PopplerErrorException;
-			return QSharedPointer<Poppler::Document>();
-		}
 
-		if (!doc) {
-			Q_ASSERT(false);
-			error = FileIncomplete;
-			return QSharedPointer<Poppler::Document>();
-		}
-		doc->setRenderBackend(Poppler::Document::SplashBackend);
-		doc->setRenderHint(Poppler::Document::Antialiasing);
-		doc->setRenderHint(Poppler::Document::TextAntialiasing);
-#endif
 
 		if (!queueAdministration->renderQueues[i]->isRunning())
 			queueAdministration->renderQueues[i]->start();
@@ -244,7 +222,7 @@ QSharedPointer<Poppler::Document> PDFRenderManager::loadDocument(const QString &
 	return document;
 }
 
-QPixmap PDFRenderManager::renderToImage(int pageNr, QObject *obj, const char *rec, double xres, double yres, int x, int y, int w, int h, bool cache, bool priority, Poppler::Page::Rotation rotate)
+QPixmap PDFRenderManager::renderToImage(int pageNr, QObject *obj, const char *rec, double xres, double yres, int x, int y, int w, int h, bool cache, bool priority, int delayTimeout, Poppler::Page::Rotation rotate)
 {
 	if (document.isNull()) return QPixmap();
 	if (pageNr < 0 || pageNr >= cachedNumPages) return QPixmap();
@@ -284,6 +262,17 @@ QPixmap PDFRenderManager::renderToImage(int pageNr, QObject *obj, const char *re
 	if (img.isNull() && renderedPages.contains(pageNr)) { // try cache first
 		img = *renderedPages[pageNr];
 	}
+
+    // delayTimeout = -1 means it's NOT been called by delayedUpdate
+    // delayTimeout >= 0 means it's been called called by delayedUpdate and delayedUpdate wants to force an update after delayTimeout
+    // Note that when delayTimeout >= 0 is used, and there's no cache, the slot can be called with null img.
+    if (delayTimeout >= 0) {
+        if (!img.isNull())
+            QMetaObject::invokeMethod(info.obj, info.slot, Q_ARG(QPixmap, img), Q_ARG(int, pageNr));
+        else
+            (new SetImageForwarder(this, obj, rec, img, pageNr))->forward(delayTimeout);
+    }
+
 	//if(img.isNull()) // not cached, thumbnail present ? (fix crash?)
 	//	img=QPixmap::fromImage(page->thumbnail());
 	if (!img.isNull() && !partialImage) { // if a image was found, scale it apropriately
@@ -396,17 +385,6 @@ void PDFRenderManager::addToCache(QImage img, int pageNr, int ticket)
 				if (info.x > -1 && info.y > -1 && info.w > -1 && info.h > -1 && !(info.xres > kMaxDpiForFullPage))
 					img = img.copy(info.x, info.y, info.w, info.h);
 
-#if (QT_VERSION < 0x050000)
-				// workaround for TXS bug 3557369: http://sourceforge.net/tracker/?func=detail&aid=3557369&group_id=250595&atid=1126426
-				// based on QTBUG-26451: https://bugreports.qt-project.org/browse/QTBUG-26451
-				// preventing QPixmap::fromImage(img) to crash in low memory situations
-				QImage *testImage = new QImage( img.size(), QImage::Format_RGB32 );
-				if ( testImage->isNull() ) {
-					qDebug() << "PDF render manager: Not enough memory to allocate image. Reducing cache filling. Current cost:" << renderedPages.totalCost() << "of" << renderedPages.maxCost();
-					reduceCacheFilling(0.5);
-				}
-				delete testImage;
-#endif
 				QMetaObject::invokeMethod(info.obj, info.slot, Q_ARG(QPixmap, QPixmap::fromImage(img)), Q_ARG(int, pageNr));
 			}
 		}
@@ -443,9 +421,9 @@ void PDFRenderManager::fillCache(int pg)
 	while (i >= min || j < max) {
 		j++;
 		if (i >= min && i < max && !renderedPage.contains(i)) // don't rerender page
-			renderToImage(i, 0, "");
+            renderToImage(i, nullptr, "");
 		if (j >= min && j < max && !renderedPage.contains(j)) // don't rerender page
-			renderToImage(j, 0, "");
+            renderToImage(j, nullptr, "");
 		i--;
 	}
 	mFillCacheMode = false;

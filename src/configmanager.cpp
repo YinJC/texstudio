@@ -11,6 +11,7 @@
 #include "insertgraphics_config.h"
 #include "grammarcheck_config.h"
 #include "PDFDocument_config.h"
+#include "terminal_config.h"
 #include "encoding.h"
 #include "codesnippet.h"
 #include "updatechecker.h"
@@ -23,6 +24,10 @@
 
 #include "manhattanstyle.h"
 
+#ifdef ADWAITA
+#include "adwaitastyle.h"
+#endif
+
 const QString TXS_AUTO_REPLACE_QUOTE_OPEN = "TMX:Replace Quote Open";
 const QString TXS_AUTO_REPLACE_QUOTE_CLOSE = "TMX:Replace Quote Close";
 
@@ -34,7 +39,7 @@ const char *PROPERTY_ADD_BUTTON = "addButton";
 Q_DECLARE_METATYPE(QPushButton *)
 
 
-ManagedProperty::ManagedProperty(): storage(0), type(PT_VOID), widgetOffset(0)
+ManagedProperty::ManagedProperty(): storage(nullptr), type(PT_VOID), widgetOffset(0)
 {
 }
 
@@ -44,7 +49,7 @@ ManagedProperty::ManagedProperty(): storage(0), type(PT_VOID), widgetOffset(0)
 	ManagedProperty ManagedProperty::fromValue(TYPE value) { \
 		ManagedProperty res;    \
 			res.storage = new TYPE; \
-		*((TYPE*)(res.storage)) = value; \
+        *(static_cast<TYPE*>(res.storage)) = value; \
 		res.type = ID;                   \
 		res.def = res.valueToQVariant(); \
 		res.widgetOffset = 0;            \
@@ -56,17 +61,17 @@ PROPERTY_TYPE_FOREACH_MACRO(CONSTRUCTOR)
 void ManagedProperty::deallocate()
 {
 	switch (type) {
-#define CASE(TYPE, ID) case ID: delete ((TYPE*)(storage)); break;
+#define CASE(TYPE, ID) case ID: delete (static_cast<TYPE*>(storage)); break;
 		PROPERTY_TYPE_FOREACH_MACRO(CASE)
 #undef CASE
 	default:
 		Q_ASSERT(false);
 	}
-	storage = 0;
+    storage = nullptr;
 }
 
 
-static ConfigManager *globalConfigManager = 0;
+static ConfigManager *globalConfigManager = nullptr;
 
 ConfigManagerInterface *ConfigManagerInterface::getInstance()
 {
@@ -77,17 +82,17 @@ ConfigManagerInterface *ConfigManagerInterface::getInstance()
 Q_DECLARE_METATYPE(ManagedProperty *)
 Q_DECLARE_METATYPE(StringStringMap)
 
-ManagedToolBar::ManagedToolBar(const QString &newName, const QStringList &defs): name(newName), defaults(defs), toolbar(0) {}
+ManagedToolBar::ManagedToolBar(const QString &newName, const QStringList &defs): name(newName), defaults(defs), toolbar(nullptr) {}
 
 QVariant ManagedProperty::valueToQVariant() const
 {
 	Q_ASSERT(storage);
 	if (!storage) return QVariant();
 	switch (type) {
-#define CONVERT(TYPE, ID) case ID: return *((TYPE*)storage);
+#define CONVERT(TYPE, ID) case ID: return *(static_cast<TYPE*>(storage));
 		PROPERTY_TYPE_FOREACH_MACRO_SIMPLE(CONVERT)
 #undef CONVERT
-#define CONVERT(TYPE, ID) case ID: return QVariant::fromValue<TYPE>(*((TYPE*)storage));
+#define CONVERT(TYPE, ID) case ID: return QVariant::fromValue<TYPE>(*(static_cast<TYPE*>(storage)));
 		PROPERTY_TYPE_FOREACH_MACRO_COMPLEX(CONVERT)
 #undef CONVERT
 	default:
@@ -102,37 +107,37 @@ void ManagedProperty::valueFromQVariant(const QVariant v)
 	if (!storage) return;
 	switch (type) {
 	case PT_VARIANT:
-		*((QVariant *)storage) = v;
+        *(static_cast<QVariant *>(storage)) = v;
 		break;
 	case PT_INT:
-		*((int *)storage) = v.toInt();
+        *(static_cast<int *>(storage)) = v.toInt();
 		break;
 	case PT_BOOL:
-		*((bool *)storage) = v.toBool();
+        *(static_cast<bool *>(storage)) = v.toBool();
 		break;
 	case PT_STRING:
-		*((QString *)storage) = v.toString();
+        *(static_cast<QString *>(storage)) = v.toString();
 		break;
 	case PT_STRINGLIST:
-		*((QStringList *)storage) = v.toStringList();
+        *(static_cast<QStringList *>(storage)) = v.toStringList();
 		break;
 	case PT_DATETIME:
-		*((QDateTime *)storage) = v.toDateTime();
+        *(static_cast<QDateTime *>(storage)) = v.toDateTime();
 		break;
 	case PT_FLOAT:
-		*((float *)storage) = v.toFloat();
+        *(static_cast<float *>(storage)) = v.toFloat();
 		break;
 	case PT_DOUBLE:
-		*((double *)storage) = v.toDouble();
+        *(static_cast<double *>(storage)) = v.toDouble();
 		break;
 	case PT_BYTEARRAY:
-		*((QByteArray *)storage) = v.toByteArray();
+        *(static_cast<QByteArray *>(storage)) = v.toByteArray();
 		break;
 	case PT_LIST:
-		*((QList<QVariant> *)storage) = v.toList();
+        *(static_cast<QList<QVariant> *>(storage)) = v.toList();
 		break;
 	case PT_MAP_STRING_STRING:
-		*((StringStringMap *)storage) = v.value<StringStringMap>();
+        *(static_cast<StringStringMap *>(storage)) = v.value<StringStringMap>();
 		break;
 	default:
 		Q_ASSERT(false);
@@ -147,19 +152,19 @@ void ManagedProperty::writeToObject(QObject *w) const
 	QCheckBox *checkBox = qobject_cast<QCheckBox *>(w);
 	if (checkBox) {
 		Q_ASSERT(type == PT_BOOL);
-		checkBox->setChecked(*((bool *)storage));
+        checkBox->setChecked(*(static_cast<bool *>(storage)));
 		return;
 	}
 	QToolButton *toolButton = qobject_cast<QToolButton *>(w);
 	if (toolButton) {
 		Q_ASSERT(type == PT_BOOL);
-		toolButton->setChecked(*((bool *)storage));
+        toolButton->setChecked(*(static_cast<bool *>(storage)));
 		return;
 	}
 	QLineEdit *edit = qobject_cast<QLineEdit *>(w);
 	if (edit) {
 		Q_ASSERT(type == PT_STRING);
-		edit->setText(*((QString *)storage));
+        edit->setText(*(static_cast<QString *>(storage)));
 		return;
 	}
 	/*QTextEdit* tedit = qobject_cast<QTextEdit*>(w);
@@ -170,26 +175,26 @@ void ManagedProperty::writeToObject(QObject *w) const
 	QSpinBox *spinBox = qobject_cast<QSpinBox *>(w);
 	if (spinBox) {
 		Q_ASSERT(type == PT_INT);
-		spinBox->setValue(*((int *)storage));
+        spinBox->setValue(*(static_cast<int *>(storage)));
 		return;
 	}
 	QComboBox *comboBox = qobject_cast<QComboBox *>(w);
 	if (comboBox) {
 		switch (type) {
 		case PT_BOOL:
-			comboBox->setCurrentIndex(*((bool *)storage) ? 1 : 0);
+            comboBox->setCurrentIndex(*(static_cast<bool *>(storage)) ? 1 : 0);
 			return;
 		case PT_INT:
-			comboBox->setCurrentIndex(*((int *)storage));
+            comboBox->setCurrentIndex(*(static_cast<int *>(storage)));
 			return;
 		case PT_STRING: {
-			int index = comboBox->findText(*(QString *)storage);
+            int index = comboBox->findText(*static_cast<QString *>(storage));
 			if (index > 0) comboBox->setCurrentIndex(index);
-			if (comboBox->isEditable()) comboBox->setEditText(*(QString *)storage);
+            if (comboBox->isEditable()) comboBox->setEditText(*static_cast<QString *>(storage));
 			return;
 		}
 		case PT_STRINGLIST: {
-			QStringList &sl = *(QStringList *)storage;
+            QStringList &sl = *static_cast<QStringList *>(storage);
 
 			int cp = comboBox->lineEdit() ? comboBox->lineEdit()->cursorPosition() : -1000;
 			while (comboBox->count() > sl.size())
@@ -215,10 +220,10 @@ void ManagedProperty::writeToObject(QObject *w) const
 	if (doubleSpinBox) {
 		switch (type) {
 		case PT_DOUBLE:
-			doubleSpinBox->setValue(*((double *)storage));
+            doubleSpinBox->setValue(*(static_cast<double *>(storage)));
 			break;
 		case PT_FLOAT:
-			doubleSpinBox->setValue(*((float *)storage));
+            doubleSpinBox->setValue(*(static_cast<float *>(storage)));
 			break;
 		default:
 			Q_ASSERT(false);
@@ -228,17 +233,17 @@ void ManagedProperty::writeToObject(QObject *w) const
 	QAction *action = qobject_cast<QAction *>(w);
 	if (action) {
 		Q_ASSERT(type == PT_BOOL);
-		action->setChecked(*((bool *)storage));
+        action->setChecked(*(static_cast<bool *>(storage)));
 		return;
 	}
 	QTextEdit *textEdit = qobject_cast<QTextEdit *>(w);
 	if (textEdit) {
 		switch (type) {
 		case PT_STRING:
-			textEdit->setPlainText(*((QString *)storage));
+            textEdit->setPlainText(*(static_cast<QString *>(storage)));
 			break;
 		case PT_STRINGLIST:
-			textEdit->setPlainText(((QStringList *)storage)->join("\n"));
+            textEdit->setPlainText((static_cast<QStringList *>(storage))->join("\n"));
 			break;
 		default:
 			Q_ASSERT(false);
@@ -251,9 +256,9 @@ void ManagedProperty::writeToObject(QObject *w) const
 bool ManagedProperty::readFromObject(const QObject *w)
 {
 #define READ_FROM_OBJECT(TYPE, VALUE) {           \
-	TYPE oldvalue = *((TYPE*)storage);         \
-	*((TYPE*)storage) = VALUE;                 \
-	return oldvalue != *((TYPE*)storage);      \
+    TYPE oldvalue = *(static_cast<TYPE*>(storage));         \
+    *(static_cast<TYPE*>(storage)) = VALUE;                 \
+    return oldvalue != *(static_cast<TYPE*>(storage));      \
 }
 	Q_ASSERT(storage);
 	if (!storage) return false;
@@ -293,9 +298,9 @@ bool ManagedProperty::readFromObject(const QObject *w)
 			READ_FROM_OBJECT(QString, comboBox->currentText())
 		case PT_STRINGLIST: {
 			QString oldvalue;
-			if (!((QStringList *)storage)->isEmpty())
-				oldvalue = ((QStringList *)storage)->first();
-			*((QStringList *)storage) = QStringList(comboBox->currentText());
+            if (!(static_cast<QStringList *>(storage))->isEmpty())
+                oldvalue = (static_cast<QStringList *>(storage))->first();
+            *(static_cast<QStringList *>(storage)) = QStringList(comboBox->currentText());
 			return oldvalue != comboBox->currentText();
 		}
 		default:
@@ -317,7 +322,7 @@ bool ManagedProperty::readFromObject(const QObject *w)
 	if (action) {
 		Q_ASSERT(type == PT_BOOL);
 		Q_ASSERT(action->isCheckable());
-		READ_FROM_OBJECT(bool, action->isChecked());
+		READ_FROM_OBJECT(bool, action->isChecked())
 	}
 
 	const QTextEdit *textEdit = qobject_cast<const QTextEdit *>(w);
@@ -336,9 +341,11 @@ bool ManagedProperty::readFromObject(const QObject *w)
 }
 #undef READ_FROM_OBJECT
 
-QTextCodec *ConfigManager::newFileEncoding = 0;
+const int ConfigManager::MAX_NUM_MACROS;
+QTextCodec *ConfigManager::newFileEncoding = nullptr;
 QString ConfigManager::configDirOverride;
 bool ConfigManager::dontRestoreSession=false;
+int ConfigManager::RUNAWAYLIMIT=30;
 
 QString getText(QWidget *w)
 {
@@ -391,13 +398,14 @@ QString getCmdID(QWidget *w)
 }
 
 ConfigManager::ConfigManager(QObject *parent): QObject (parent),
-	buildManager(0), editorConfig(new LatexEditorViewConfig),
+  buildManager(nullptr), editorConfig(new LatexEditorViewConfig),
 	completerConfig (new LatexCompleterConfig),
 	webPublishDialogConfig (new WebPublishDialogConfig),
 	pdfDocumentConfig(new PDFDocumentConfig),
 	insertGraphicsConfig(new InsertGraphicsConfig),
 	grammarCheckerConfig(new GrammarCheckerConfig),
-	menuParent(0), menuParentsBar(0), modifyMenuContentsFirstCall(true), persistentConfig(0)
+  terminalConfig(new InternalTerminalConfig),
+  menuParent(nullptr), menuParentsBar(nullptr), modifyMenuContentsFirstCall(true), pdflatexEdit(nullptr), persistentConfig(nullptr)
 {
 
 	Q_ASSERT(!globalConfigManager);
@@ -421,7 +429,7 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	                                      "main/latex/spacing/newline" << "separator" <<
 	                                      "main/math/mathmode" << "main/math/subscript" << "main/math/superscript" << "main/math/frac" << "main/math/dfrac" << "main/math/sqrt"));
 
-	Ui::ConfigDialog *pseudoDialog = (Ui::ConfigDialog *) 0;
+    Ui::ConfigDialog *pseudoDialog = static_cast<Ui::ConfigDialog *>(nullptr);
 
 	registerOption("Startup/CheckLatexConfiguration", &checkLatexConfiguration, true, &pseudoDialog->checkBoxCheckLatexConfiguration);
 
@@ -433,9 +441,6 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("Structure/MarkStructureElementsBeyondEnd", &markStructureElementsBeyondEnd, true, &pseudoDialog->checkBoxMarkStructureElementsBeyondEnd);
 	registerOption("Structure/MarkStructureElementsInAppendix", &markStructureElementsInAppendix, true, &pseudoDialog->checkBoxMarkStructureElementsInAppendix);
 	registerOption("StructureView/ReferenceCommandsInContextMenu", &referenceCommandsInContextMenu, "\\ref", &pseudoDialog->leReferenceCommandsInContextMenu);
-
-	enviromentModes << "verbatim" << "numbers" << "picture" << "comment";
-
 
 	//beginRegisterGroup("texmaker");
 	//files
@@ -465,7 +470,7 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 	registerOption("Files/Bib Paths", &additionalBibPaths, env.value("BIBINPUTS", ""), &pseudoDialog->lineEditPathBib);
 	registerOption("Files/Image Paths", &additionalImagePaths, env.value("TEXINPUTS", ""), &pseudoDialog->lineEditPathImages);
-	
+
 	registerOption("Session/StoreRelativePaths", &sessionStoreRelativePaths, true, &pseudoDialog->checkBoxSessionStoreRelativePaths);
 
 	registerOption("Editor/GoToErrorWhenDisplayingLog", &goToErrorWhenDisplayingLog , true, &pseudoDialog->checkBoxGoToErrorWhenDisplayingLog);
@@ -473,12 +478,15 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("Editor/LogFileEncoding", &logFileEncoding, "Document", &pseudoDialog->comboBoxLogFileEncoding);
 	registerOption("Editor/ScanInstalledLatexPackages", &scanInstalledLatexPackages, true, &pseudoDialog->checkBoxScanInstalledLatexPackages);
 
-	registerOption("Tools/Insert Unicode From SymbolGrid", &insertUTF, false, &pseudoDialog->checkBoxInsertSymbolAsUCS);
+	registerOption("Tools/Insert Unicode From SymbolGrid", &insertSymbolsAsUnicode, false, &pseudoDialog->checkBoxInsertSymbolAsUCS);
 
 	registerOption("Spell/DictionaryDir", &spellDictDir, "", &pseudoDialog->leDictDir); //don't translate it
 	registerOption("Spell/Language", &spellLanguage, "<none>", &pseudoDialog->comboBoxSpellcheckLang);
-	registerOption("Spell/Dic", &spell_dic, "<dic not found>", 0);
+    registerOption("Spell/Dic", &spell_dic, "<dic not found>", nullptr);
 	registerOption("Thesaurus/Database", &thesaurus_database, "<dic not found>", &pseudoDialog->comboBoxThesaurusFileName);
+
+    //macro repository
+    registerOption("Macros/RepositoryURL", &URLmacroRepository, "https://api.github.com/repos/texstudio-org/texstudio-macro/contents/", nullptr);
 
 	//updates
 	registerOption("Update/AutoCheck", &autoUpdateCheck, true, &pseudoDialog->checkBoxAutoUpdateCheck);
@@ -499,6 +507,7 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("Editor/Weak Indent", &editorConfig->weakindent, false);
 	registerOption("Editor/Indent with Spaces", &editorConfig->replaceIndentTabs, false, &pseudoDialog->checkBoxReplaceIndentTabByWhitespace);
 	registerOption("Editor/ReplaceTextTabs", &editorConfig->replaceTextTabs, false, &pseudoDialog->checkBoxReplaceTextTabByWhitespace);
+	registerOption("Editor/RemoveTrailingWsOnSave", &editorConfig->removeTrailingWsOnSave, false, &pseudoDialog->checkboxRemoveTrailingWsOnSave);
 	registerOption("Editor/Folding", &editorConfig->folding, true, &pseudoDialog->checkBoxFolding);
 	registerOption("Editor/Show Line State", &editorConfig->showlinestate, true, &pseudoDialog->checkBoxLineState);
 	registerOption("Editor/Show Cursor State", &editorConfig->showcursorstate, true, &pseudoDialog->checkBoxState);
@@ -552,6 +561,7 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("Editor/AllowDragAndDrop", &editorConfig->allowDragAndDrop, true, &pseudoDialog->checkBoxAllowDragAndDrop);
 	registerOption("Editor/Mouse Wheel Zoom", &editorConfig->mouseWheelZoom, true, &pseudoDialog->checkBoxMouseWheelZoom);
 	registerOption("Editor/Smooth Scrolling", &editorConfig->smoothScrolling, true, &pseudoDialog->checkBoxSmoothScrolling);
+	registerOption("Editor/Vertical Over Scroll", &editorConfig->verticalOverScroll, false, &pseudoDialog->checkBoxVerticalOverScroll);
 
 	registerOption("Editor/Hack Auto Choose", &editorConfig->hackAutoChoose, true, &pseudoDialog->checkBoxHackAutoRendering);
 	registerOption("Editor/Hack Disable Fixed Pitch", &editorConfig->hackDisableFixedPitch, false, &pseudoDialog->checkBoxHackDisableFixedPitch);
@@ -564,16 +574,18 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	//completion
 	registerOption("Editor/Completion", &completerConfig->enabled, true, &pseudoDialog->checkBoxCompletion);
 	Q_ASSERT(sizeof(int) == sizeof(LatexCompleterConfig::CaseSensitive));
-	registerOption("Editor/Completion Case Sensitive", (int *)&completerConfig->caseSensitive, 2);
+    registerOption("Editor/Completion Case Sensitive", reinterpret_cast<int *>(&completerConfig->caseSensitive), 2);
 	registerOption("Editor/Completion Complete Common Prefix", &completerConfig->completeCommonPrefix, true, &pseudoDialog->checkBoxCompletePrefix);
     registerOption("Editor/Completion EOW Completes", &completerConfig->eowCompletes, false, &pseudoDialog->checkBoxEOWCompletes);
 	registerOption("Editor/Completion Enable Tooltip Help", &completerConfig->tooltipHelp, true, &pseudoDialog->checkBoxToolTipHelp);
 	registerOption("Editor/Completion Enable Tooltip Preview", &completerConfig->tooltipPreview, true, &pseudoDialog->checkBoxToolTipCompletePreview);
 	registerOption("Editor/Completion Use Placeholders", &completerConfig->usePlaceholders, true, &pseudoDialog->checkBoxUsePlaceholders);
 	registerOption("Editor/Completion Show Placeholders", &editorConfig->showPlaceholders, true, &pseudoDialog->checkBoxShowPlaceholders);
-	registerOption("Editor/Completion Prefered Tab", (int *)&completerConfig->preferedCompletionTab, 0, &pseudoDialog->comboBoxPreferedTab);
+    registerOption("Editor/Completion Prefered Tab", reinterpret_cast<int *>(&completerConfig->preferedCompletionTab), 0, &pseudoDialog->comboBoxPreferedTab);
 	registerOption("Editor/Completion Tab Relative Font Size Percent", &completerConfig->tabRelFontSizePercent, 100, &pseudoDialog->spinBoxTabRelFontSize);
     registerOption("Editor/Completion Auto Insert Math", &completerConfig->autoInsertMathDelimiters, true, &pseudoDialog->checkBoxAutoInsertMathDelimiters);
+    registerOption("Editor/Completion Auto Insert Math Start", &completerConfig->startMathDelimiter,"$");
+    registerOption("Editor/Completion Auto Insert Math Stop", &completerConfig->stopMathDelimiter,"$");
 
 
 	registerOption("Editor/Auto Insert LRM", &editorConfig->autoInsertLRM, false, &pseudoDialog->checkBoxAutoLRM);
@@ -591,7 +603,7 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
     registerOption("Editor/insertCiteCommand",&citeCommand,"\\cite",&pseudoDialog->lineEditCiteCommand);
 
 	//table autoformating
-	registerOption("TableAutoformat/Special Commands", &tableAutoFormatSpecialCommands, "\\hline,\\cline,\\intertext,\\shortintertext,\\toprule,\\midrule,\\bottomrule", &pseudoDialog->leTableFormatingSpecialCommands);
+    registerOption("TableAutoformat/Special Commands", &tableAutoFormatSpecialCommands, "\\hline,\\cline,\\intertext,\\shortintertext,\\toprule,\\midrule,\\bottomrule", &pseudoDialog->leTableFormatingSpecialCommands);
 	registerOption("TableAutoformat/Special Command Position", &tableAutoFormatSpecialCommandPos, 0, &pseudoDialog->cbTableFormatingSpecialCommandPos);
 	registerOption("TableAutoformat/One Line Per Cell", &tableAutoFormatOneLinePerCell, false, &pseudoDialog->cbTableFormatingOneLinePerCell);
 
@@ -644,15 +656,29 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("Tools/Log Paths", &BuildManager::additionalLogPaths, "", &pseudoDialog->lineEditPathLog);
 	registerOption("Tools/PDF Paths", &BuildManager::additionalPdfPaths, "", &pseudoDialog->lineEditPathPDF);
 
-	//SVN
+    //SVN/GIT
 	//registerOption("Tools/Auto Checkin after Save", &autoCheckinAfterSave, false, &pseudoDialog->cbAutoCheckin);
+    registerOption("Tools/UseVCS", &useVCS, 0, &pseudoDialog->comboBoxUseVCS);
 	registerOption("Tools/Auto Checkin after Save level", &autoCheckinAfterSaveLevel, 0, &pseudoDialog->comboBoxAutoCheckinLevel);
 	registerOption("Tools/SVN Undo", &svnUndo, false, &pseudoDialog->cbSVNUndo);
 	registerOption("Tools/SVN KeywordSubstitution", &svnKeywordSubstitution, false, &pseudoDialog->cbKeywordSubstitution);
 	registerOption("Tools/SVN Search Path Depth", &svnSearchPathDepth, 2, &pseudoDialog->sbDirSearchDepth);
 
+#ifdef INTERNAL_TERMINAL
+	registerOption("Terminal/ColorScheme", &terminalConfig->terminalColorScheme, "Linux", &pseudoDialog->comboBoxTerminalColorScheme);
+	registerOption("Terminal/Font Family", &terminalConfig->terminalFontFamily, "", &pseudoDialog->comboBoxTerminalFont);
+	registerOption("Terminal/Font Size", &terminalConfig->terminalFontSize, -1, &pseudoDialog->spinBoxTerminalFontSize);
+	registerOption("Terminal/Shell", &terminalConfig->terminalShell, "/bin/bash", &pseudoDialog->lineEditTerminalShell);
+#endif
+
 	//interfaces
-	registerOption("GUI/Style", &modernStyle, false, &pseudoDialog->comboBoxInterfaceModernStyle);
+    int defaultStyle=0;
+    if(systemUsesDarkMode()){
+        // use modern style -dark in case of dark mode.
+        // this is only relevant on the very first start-up of txs
+        defaultStyle=2;
+    }
+    registerOption("GUI/Style", &modernStyle, defaultStyle, &pseudoDialog->comboBoxInterfaceModernStyle);
 #if defined Q_WS_X11 || defined Q_OS_LINUX
 	interfaceFontFamily = "<later>";
 	interfaceStyle = "<later>";
@@ -668,6 +694,8 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("GUI/ToobarIconSize", &guiToolbarIconSize, 22);
 	registerOption("GUI/SymbolSize", &guiSymbolGridIconSize, 32);
 	registerOption("GUI/SecondaryToobarIconSize", &guiSecondaryToolbarIconSize, 16);
+    registerOption("GUI/PDFToobarIconSize", &guiPDFToolbarIconSize, 16);
+    registerOption("GUI/ConfigShorcutColumnWidth", &guiConfigShortcutColumnWidth, 200);
 
 	registerOption("View/ShowStatusbar", &showStatusbar, true);
 
@@ -679,13 +707,13 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("Interface/Language", &language, "", &pseudoDialog->comboBoxLanguage);
 
 	//preview
-	registerOption("Preview/Mode", (int *)&previewMode, (int)PM_INLINE, &pseudoDialog->comboBoxPreviewMode);
-	registerOption("Preview/Auto Preview", (int *)&autoPreview, 1, &pseudoDialog->comboBoxAutoPreview);
+    registerOption("Preview/Mode", reinterpret_cast<int *>(&previewMode), static_cast<int>(PM_INLINE), &pseudoDialog->comboBoxPreviewMode);
+    registerOption("Preview/Auto Preview", reinterpret_cast<int *>(&autoPreview), 1, &pseudoDialog->comboBoxAutoPreview);
 	registerOption("Preview/Auto Preview Delay", &autoPreviewDelay, 300, &pseudoDialog->spinBoxAutoPreviewDelay);
 	registerOption("Preview/SegmentPreviewScalePercent", &segmentPreviewScalePercent, 150, &pseudoDialog->spinBoxSegmentPreviewScalePercent);
 
 	//pdf preview
-	QRect screen = QApplication::desktop()->availableGeometry();
+	QRect screen = QGuiApplication::primaryScreen()->availableGeometry();
 	registerOption("Geometries/PdfViewerLeft", &pdfDocumentConfig->windowLeft, screen.left() + screen.width() * 2 / 3);
 	registerOption("Geometries/PdfViewerTop", &pdfDocumentConfig->windowTop, screen.top() + 10);
 	registerOption("Geometries/PdfViewerWidth", &pdfDocumentConfig->windowWidth, screen.width() / 3 - 26);
@@ -712,16 +740,21 @@ ConfigManager::ConfigManager(QObject *parent): QObject (parent),
 	registerOption("Preview/HighlightDuration", &pdfDocumentConfig->highlightDuration, 2000, &pseudoDialog->spinBoxHighlightDuration);
 	registerOption("Preview/Sync File Mask", &pdfDocumentConfig->syncFileMask, "*.tex;*.tikz;*.pdf_tex;*.ctx", &pseudoDialog->lineEditPreviewSyncFileMask);
 	registerOption("Preview/AutoHideToolbars", &pdfDocumentConfig->autoHideToolbars, false, &pseudoDialog->autoHideToolbars);
+	registerOption("Preview/Auto Full Recompile", &editorConfig->fullCompilePreview, false, &pseudoDialog->autoRecompileFullDocument);
 
 	registerOption("Preview/EnlargedEmbedded", &viewerEnlarged, false);
 
 	// LogView
 	registerOption("LogView/WarnIfFileSizeLargerMB", &logViewWarnIfFileSizeLargerMB, 2.0);
+    registerOption("LogView/RememberChoiceLargeFile", &logViewRememberChoice, 0);
 
 #ifndef QT_NO_DEBUG
 	registerOption("Debug/Last Application Modification", &debugLastFileModification);
 	registerOption("Debug/Last Full Test Run", &debugLastFullTestRun);
 #endif
+
+    // runaway limit for lexing
+    registerOption("Editor/RUNAWAYLIMIT", &RUNAWAYLIMIT , 30);
 }
 
 ConfigManager::~ConfigManager()
@@ -730,8 +763,9 @@ ConfigManager::~ConfigManager()
 	delete completerConfig;
 	delete webPublishDialogConfig;
 	delete insertGraphicsConfig;
-	if (persistentConfig) delete persistentConfig;
-	globalConfigManager = 0;
+	delete persistentConfig;
+	delete terminalConfig;
+	globalConfigManager = nullptr;
 }
 
 QString ConfigManager::iniPath()
@@ -835,7 +869,8 @@ QSettings *ConfigManager::readSettings(bool reread)
 #define PREFIX
 #endif
 			fallBackPaths << PREFIX"/share/hunspell" << PREFIX"/share/myspell"
-			              << "/usr/share/hunspell" << "/usr/share/myspell" ;
+                          << "/usr/share/hunspell" << "/usr/share/myspell"
+                          << parseDir("[txs-app-dir]/../share/texstudio") ;
 #endif
 #ifdef Q_OS_MAC
 			fallBackPaths << parseDir("[txs-app-dir]/Contents/Resources") << "/Applications/texstudio.app/Contents/Resources";
@@ -874,7 +909,8 @@ QSettings *ConfigManager::readSettings(bool reread)
 		QStringList preferredPaths = QStringList() << parseDir("[txs-settings-dir]/dictionaries");
 		QStringList fallBackPaths;
 #ifdef Q_OS_LINUX
-		fallBackPaths << PREFIX"/share/mythes" << "/usr/share/mythes" ;
+        fallBackPaths << PREFIX"/share/mythes" << "/usr/share/mythes"
+                      << parseDir("[txs-app-dir]/../share/texstudio") ;
 #endif
 		thesaurus_database = findResourceFile("th_" + QString(QLocale::system().name()) + "_v2.dat", true, preferredPaths, fallBackPaths);
 		if (thesaurus_database == "") thesaurus_database = findResourceFile("th_en_US_v2.dat", true, preferredPaths, fallBackPaths);
@@ -893,7 +929,7 @@ QSettings *ConfigManager::readSettings(bool reread)
 	//----------------------------editor--------------------
 
 	//completion
-	QStringList cwlFiles = config->value("Editor/Completion Files", QStringList() << "tex.cwl" << "latex-document.cwl"  << "latex-dev.cwl" << "latex-mathsymbols.cwl").toStringList();
+	QStringList cwlFiles = config->value("Editor/Completion Files", QStringList() << "tex.cwl" << "latex-document.cwl"  << "latex-dev.cwl").toStringList();
 	//completerConfig->words=loadCwlFiles(cwlFiles,ltxCommands,completerConfig);
 	LatexParser &latexParser = LatexParser::getInstance();
 
@@ -905,7 +941,7 @@ QSettings *ConfigManager::readSettings(bool reread)
 			QDataStream in(&file);
 			quint32 magicNumer, version;
 			in >>  magicNumer >> version;
-			if (magicNumer == (quint32)0xA0B0C0D0 && version == 1) {
+            if (magicNumer == static_cast<quint32>(0xA0B0C0D0) && version == 1) {
 				in.setVersion(QDataStream::Qt_4_0);
 				uint key;
 				int length, usage;
@@ -959,7 +995,7 @@ QSettings *ConfigManager::readSettings(bool reread)
 	//build commands
 	if (!buildManager) {
 		UtilsUi::txsCritical("No build Manager created! => crash");
-		return 0;
+        return nullptr;
 	}
 	buildManager->readSettings(*config);
 	runLaTeXBibTeXLaTeX = config->value("Tools/After BibTeX Change", "tmx://latex && tmx://bibtex && tmx://latex").toString() != "";
@@ -983,57 +1019,72 @@ QSettings *ConfigManager::readSettings(bool reread)
 			*/
 		} else for (int i = 0; i < keyReplaceCount; i++) {
 				keyReplace.append(config->value("User/KeyReplace" + QVariant(i).toString(), i != 0 ? "'" : "\"").toString());
-				keyReplaceAfterWord.append(config->value("User/KeyReplaceAfterWord" + QVariant(i).toString(), i != 0 ? "" : "").toString());
+                keyReplaceAfterWord.append(config->value("User/KeyReplaceAfterWord" + QVariant(i).toString(), "").toString());
 				keyReplaceBeforeWord.append(config->value("User/KeyReplaceBeforeWord" + QVariant(i).toString(), i != 0 ? "" : "\">").toString());
 			}
 	}
 
 	//user macros
 	if (!reread) {
-		if (config->value("Macros/0").isValid()) {
-			for (int i = 0; i < 1000; i++) {
-				QStringList ls = config->value(QString("Macros/%1").arg(i)).toStringList();
-				if (ls.isEmpty()) break;
-				completerConfig->userMacros.append(Macro(ls));
-			}
-			for (int i = 0; i < keyReplace.size(); i++) {
-				completerConfig->userMacros.append(Macro(
-				                                       tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("before word")),
-				                                       keyReplaceBeforeWord[i].replace("%", "%%"),
-				                                       "",
-				                                       "(?language:latex)(?<=\\s|^)" + QRegExp::escape(keyReplace[i])
-				                                   ));
-				completerConfig->userMacros.append(Macro(
-				                                       tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("after word")),
-				                                       keyReplaceAfterWord[i].replace("%", "%%"),
-				                                       "",
-				                                       "(?language:latex)(?<=\\S)" + QRegExp::escape(keyReplace[i])
-				                                   ));
-			}
-		} else {
-			// try importing old macros
-			QStringList userTags = config->value("User/Tags").toStringList();
-			QStringList userNames = config->value("User/TagNames").toStringList();
-			QStringList userAbbrevs = config->value("User/TagAbbrevs").toStringList();
-			QStringList userTriggers = config->value("User/TagTriggers").toStringList();
+        QDir dir(joinPath(configBaseDir,"macro"));
+        if(dir.exists()){
+            // use file based macros
+            for (int i = 0; i < ConfigManager::MAX_NUM_MACROS; i++) {
+                QString fileName=joinPath(configBaseDir,"macro",QString("Macro_%1.txsMacro").arg(i));
+                if(QFile(fileName).exists()){
+                    Macro macro;
+                    macro.load(fileName);
+                    completerConfig->userMacros.append(macro);
+                }else{
+                    break;
+                }
+            }
+        }else{
+            if (config->value("Macros/0").isValid()) {
+                for (int i = 0; i < ConfigManager::MAX_NUM_MACROS; i++) {
+                    QStringList ls = config->value(QString("Macros/%1").arg(i)).toStringList();
+                    if (ls.isEmpty()) break;
+                    completerConfig->userMacros.append(Macro(ls));
+                }
+                for (int i = 0; i < keyReplace.size(); i++) {
+                    completerConfig->userMacros.append(Macro(
+                                                           tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("before word")),
+                                                           keyReplaceBeforeWord[i].replace("%", "%%"),
+                                                           "",
+                                                           "(?language:latex)(?<=\\s|^)" + QRegExp::escape(keyReplace[i])
+                                                           ));
+                    completerConfig->userMacros.append(Macro(
+                                                           tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("after word")),
+                                                           keyReplaceAfterWord[i].replace("%", "%%"),
+                                                           "",
+                                                           "(?language:latex)(?<=\\S)" + QRegExp::escape(keyReplace[i])
+                                                           ));
+                }
+            } else {
+                // try importing old macros
+                QStringList userTags = config->value("User/Tags").toStringList();
+                QStringList userNames = config->value("User/TagNames").toStringList();
+                QStringList userAbbrevs = config->value("User/TagAbbrevs").toStringList();
+                QStringList userTriggers = config->value("User/TagTriggers").toStringList();
 
-			while (userTriggers.size() < userTags.size()) userTriggers << "";
+                while (userTriggers.size() < userTags.size()) userTriggers << "";
 
-			for (int i = 0; i < keyReplace.size(); i++) {
-				userNames.append(tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("before word")));
-				userTags.append(keyReplaceBeforeWord[i].replace("%", "%%"));
-				userAbbrevs.append("");
-				userTriggers.append("(?language:latex)(?<=\\s|^)" + QRegExp::escape(keyReplace[i]));
+                for (int i = 0; i < keyReplace.size(); i++) {
+                    userNames.append(tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("before word")));
+                    userTags.append(keyReplaceBeforeWord[i].replace("%", "%%"));
+                    userAbbrevs.append("");
+                    userTriggers.append("(?language:latex)(?<=\\s|^)" + QRegExp::escape(keyReplace[i]));
 
-				userNames.append(tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("after word")));
-				userTags.append(keyReplaceAfterWord[i].replace("%", "%%"));
-				userAbbrevs.append("");
-				userTriggers.append("(?language:latex)(?<=\\S)" + QRegExp::escape(keyReplace[i]));
-			}
+                    userNames.append(tr("Key replacement: %1 %2").arg(keyReplace[i]).arg(tr("after word")));
+                    userTags.append(keyReplaceAfterWord[i].replace("%", "%%"));
+                    userAbbrevs.append("");
+                    userTriggers.append("(?language:latex)(?<=\\S)" + QRegExp::escape(keyReplace[i]));
+                }
 
-			for (int i = 0; i < userTags.size(); i++)
-				completerConfig->userMacros.append(Macro(userNames.value(i, ""), userTags[i], userAbbrevs.value(i, ""), userTriggers.value(i, "")));
-		}
+                for (int i = 0; i < userTags.size(); i++)
+                    completerConfig->userMacros.append(Macro(userNames.value(i, ""), userTags[i], userAbbrevs.value(i, ""), userTriggers.value(i, "")));
+            }
+        }
 		// import old svn setting
 		if (config->contains("Tools/Auto Checkin after Save")) {
 			bool oldSetting = config->value("Tools/Auto Checkin after Save", false).toBool();
@@ -1098,8 +1149,7 @@ QSettings *ConfigManager::readSettings(bool reread)
 	replacedIconsOnMenus = config->value("customIcons").toMap();
 
 	//custom highlighting
-	customEnvironments = config->value("customHighlighting").toMap();
-	LatexParser::getInstance().customCommands = QSet<QString>::fromList(config->value("customCommands").toStringList());
+    LatexParser::getInstance().customCommands = convertStringListtoSet(config->value("customCommands").toStringList());
 
 	//--------------------appearance------------------------------------
 	QFontDatabase fdb;
@@ -1156,6 +1206,10 @@ QSettings *ConfigManager::readSettings(bool reread)
 #endif
 	QApplication::setFont(QFont(interfaceFontFamily, interfaceFontSize));
 
+#ifdef INTERNAL_TERMINAL
+	terminalConfig->initDefaults(xf);
+#endif
+
 	config->endGroup();
 
 	return config;
@@ -1204,17 +1258,14 @@ QSettings *ConfigManager::saveSettings(const QString &saveName)
 	//-------------------key replacements-----------------
 	config->setValue("User/New Key Replacements Created", true);
 
-	//user macros
-	int index = 0;
-	foreach (const Macro &macro, completerConfig->userMacros) {
-		if (macro.name == TXS_AUTO_REPLACE_QUOTE_OPEN || macro.name == TXS_AUTO_REPLACE_QUOTE_CLOSE || macro.document)
-			continue;
-		config->setValue(QString("Macros/%1").arg(index++), macro.toStringList());
-	}
+    saveMacros();
+
+    int index=0;
 	while (config->contains(QString("Macros/%1").arg(index))) { //remove old macros which are not used any more
 		config->remove(QString("Macros/%1").arg(index));
 		index++;
 	}
+
 	// remove old Tags
 	config->remove("User/Tags");
 	config->remove("User/TagNames");
@@ -1225,6 +1276,9 @@ QSettings *ConfigManager::saveSettings(const QString &saveName)
 	config->beginWriteArray("keysetting");
 	for (int i = 0; i < managedMenuNewShortcuts.size(); ++i) {
 		config->setArrayIndex(i);
+        if(managedMenuNewShortcuts[i].first.startsWith("main/macros/")){
+            continue;
+        }
 		config->setValue("id", managedMenuNewShortcuts[i].first);
 		config->setValue("key", managedMenuNewShortcuts[i].second);
 	}
@@ -1240,17 +1294,53 @@ QSettings *ConfigManager::saveSettings(const QString &saveName)
 	}
 	config->setValue("customIcons", replacedIconsOnMenus);
 	// custom highlighting
-	config->setValue("customHighlighting", customEnvironments);
-	QStringList zw = LatexParser::getInstance().customCommands.toList();
+    QStringList zw = LatexParser::getInstance().customCommands.values();
 	config->setValue("customCommands", zw);
 
 	config->endGroup();
 
-	config->sync();
+    config->sync();
 
-	return config;
+    return config;
 }
 
+QSettings *ConfigManager::getSettings()
+{
+    return persistentConfig;
+}
+
+void ConfigManager::saveMacros()
+{
+    //user macros
+    bool newlyCreatedPath=!QDir(configBaseDir+"/macro").exists();
+    if(newlyCreatedPath){
+        newlyCreatedPath=QDir().mkpath(configBaseDir+"/macro");
+    }
+
+    int index = 0;
+    foreach (Macro macro, completerConfig->userMacros) {
+        if (macro.name == TXS_AUTO_REPLACE_QUOTE_OPEN || macro.name == TXS_AUTO_REPLACE_QUOTE_CLOSE || macro.document)
+            continue;
+        if(newlyCreatedPath && index<10 && index!=2){
+            macro.setShortcut(QString("Shift+F%1").arg(index+1));
+        }
+        macro.save(QString("%1macro/Macro_%2.txsMacro").arg(configBaseDir).arg(index++));
+    }
+    // remove unused macro files
+    // lazy approach, only first macro is removed
+    QFile fn(QString("%1macro/Macro_%2.txsMacro").arg(configBaseDir).arg(index));
+    if(fn.exists()){
+        fn.remove();
+    }
+}
+
+/*!
+ * \brief show and execute configuration dialog
+ * Translates internal settings into human readable settings and vice versa
+ * Fills the config dialog with available settings
+ * \param parentToDialog
+ * \return dialog was exited with "okay"
+ */
 bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 {
 	ConfigDialog *confDlg = new ConfigDialog(parentToDialog);
@@ -1260,7 +1350,7 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	//----------managed properties--------------------
 	foreach (const ManagedProperty &mp, managedProperties)
 		if (mp.widgetOffset)
-			mp.writeToObject(*((QWidget **)((char *)&confDlg->ui + mp.widgetOffset))); //convert to char*, because the offset is in bytes
+            mp.writeToObject(*((QWidget **)((char *)&confDlg->ui + mp.widgetOffset))); //convert to char*, because the offset is in bytes
 
 	//files
 	//if (newfile_encoding)
@@ -1282,7 +1372,7 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	else confDlg->ui.comboBoxAutoIndent->setCurrentIndex(0);
 
 	lastLanguage = language;
-	QStringList languageFiles = findResourceFiles("translations", "texstudio_*.qm") << findResourceFiles("", "texstudio_*.qm");
+    QStringList languageFiles = findResourceFiles("translation", "texstudio_*.qm") << findResourceFiles("", "texstudio_*.qm");
 	for (int i = languageFiles.count() - 1; i >= 0; i--) {
 		QString temp = languageFiles[i].mid(languageFiles[i].indexOf("_") + 1);
 		temp.truncate(temp.indexOf("."));
@@ -1290,9 +1380,11 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 		else languageFiles[i] = temp;
 	}
 	if (!languageFiles.contains("en")) languageFiles.append("en");
+    languageFiles.sort(); // insert sorted
 	int langId = -1;
 	for (int i = 0; i < languageFiles.count(); i++) {
-		confDlg->ui.comboBoxLanguage->addItem(languageFiles[i]);
+        QLocale loc(languageFiles[i]);
+        confDlg->ui.comboBoxLanguage->addItem(languageFiles[i]+"  ("+QLocale::languageToString(loc.language())+")");
 		if (languageFiles[i] == language) langId = i;
 	}
 	confDlg->ui.comboBoxLanguage->addItem(tr("default"));
@@ -1303,6 +1395,8 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 
 	QStringList files;
 	foreach(const QString &dirname, QDir::searchPaths("cwl")) {
+        if(dirname.endsWith("autogenerated"))
+            continue; // don't offer autogenerated cwls for gobal completion files (as they are for syntax checking only and rather bad at it)
 		files << QDir(dirname).entryList(QStringList("*.cwl"), QDir::Files);
 	}
 
@@ -1326,14 +1420,13 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	if (20 < autosaveEveryMinutes) confDlg->ui.comboBoxAutoSave->setCurrentIndex(6);
 	//--build things
 	//normal commands
-	pdflatexEdit = 0;
 	tempCommands = buildManager->getAllCommands();
 	QStringList tempOrder = buildManager->getCommandsOrder();
 	rerunButtons.clear();
 	commandInputs.clear();
 	createCommandList(confDlg->ui.groupBoxCommands, tempOrder, false, false);
-	createCommandList(confDlg->ui.groupBoxMetaCommands, tempOrder, false, true);
-	createCommandList(confDlg->ui.groupBoxUserCommands, tempOrder, true, false);
+    createCommandList(confDlg->ui.groupBoxMetaCommands, tempOrder, false, true);
+    createCommandList(confDlg->ui.groupBoxUserCommands, tempOrder, true, false);
 	confDlg->setBuildManger(buildManager);
 
 	//quickbuild/more page
@@ -1352,7 +1445,7 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	confDlg->ui.pushButtonGrammarLTJava->setIcon(fileOpenIcon);
 
 	//menu shortcuts
-	QTreeWidgetItem *menuShortcuts = new QTreeWidgetItem((QTreeWidget *)0, QStringList() << QString(tr("Menus")));
+    QTreeWidgetItem *menuShortcuts = new QTreeWidgetItem(static_cast<QTreeWidget *>(nullptr), QStringList() << QString(tr("Menus")));
     foreach (QMenu *menu, managedMenus){
         if(menu->objectName().startsWith("main"))
             managedMenuToTreeWidget(menuShortcuts, menu);
@@ -1360,7 +1453,7 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	confDlg->ui.shortcutTree->addTopLevelItem(menuShortcuts);
 	menuShortcuts->setExpanded(true);
 #ifndef NO_POPPLER_PREVIEW
-    QTreeWidgetItem *menuShortcutsPDF = new QTreeWidgetItem((QTreeWidget *)0, QStringList() << QString(tr("Menus PDF-Viewer")));
+    QTreeWidgetItem *menuShortcutsPDF = new QTreeWidgetItem(static_cast<QTreeWidget *>(nullptr), QStringList() << QString(tr("Menus PDF-Viewer")));
     QSet<QString> usedMenus;
     foreach (QMenu *menu, managedMenus){
         if(usedMenus.contains(menu->objectName()))
@@ -1374,15 +1467,15 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
     menuShortcutsPDF->setExpanded(true);
 #endif
 
-	QTreeWidgetItem *editorItem = new QTreeWidgetItem((QTreeWidget *)0, QStringList() << ConfigDialog::tr("Editor"));
+    QTreeWidgetItem *editorItem = new QTreeWidgetItem(static_cast<QTreeWidget *>(nullptr), QStringList() << ConfigDialog::tr("Editor"));
 	QTreeWidgetItem *editorKeys = new QTreeWidgetItem(editorItem, QStringList() << ConfigDialog::tr("Basic Key Mapping"));
 	const int editorKeys_EditOperationRole = Qt::UserRole;
 
-	Q_ASSERT((int)Qt::CTRL == (int)Qt::ControlModifier && (int)Qt::ALT == (int)Qt::AltModifier && (int)Qt::SHIFT == (int)Qt::ShiftModifier && (int)Qt::META == (int)Qt::MetaModifier);
+    Q_ASSERT(static_cast<int>(Qt::CTRL) == static_cast<int>(Qt::ControlModifier) && static_cast<int>(Qt::ALT) == static_cast<int>(Qt::AltModifier) && static_cast<int>(Qt::SHIFT) == static_cast<int>(Qt::ShiftModifier) && static_cast<int>(Qt::META) == static_cast<int>(Qt::MetaModifier));
 	QMultiMap<int, QString> keysReversed;
 	QHash<QString, int>::const_iterator it = this->editorKeys.constBegin();
 	while (it != this->editorKeys.constEnd()) {
-		keysReversed.insertMulti(it.value(), it.key());
+        keysReversed.insert(it.value(), it.key());
 		++it;
 	}
 	int ht = confDlg->ui.comboBoxLanguage->minimumSizeHint().height();
@@ -1394,7 +1487,7 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 			listEmpty = true;
 		}
 		foreach (const QString key, keys) {
-			QTreeWidgetItem *twi = 0;
+            QTreeWidgetItem *twi = nullptr;
 			if (listEmpty) {
 				twi = new QTreeWidgetItem(editorKeys, QStringList() << LatexEditorViewConfig::translateEditOperation(elem) << "" << tr("<none>"));
 			} else {
@@ -1418,8 +1511,8 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	QSize sz = twi->sizeHint(0);
 	twi->setSizeHint(0, QSize(sz.width(), ht));
 #else
-	Q_UNUSED(twi);
-	Q_UNUSED(ht);
+	Q_UNUSED(twi)
+	Q_UNUSED(ht)
 #endif
 
 	ShortcutDelegate delegate;
@@ -1433,7 +1526,7 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	manipulatedMenuTree.clear();
 	superAdvancedItems.clear();
 	foreach (QMenu *menu, managedMenus) {
-		QTreeWidgetItem *menuLatex = managedLatexMenuToTreeWidget(0, menu);
+        QTreeWidgetItem *menuLatex = managedLatexMenuToTreeWidget(nullptr, menu);
 		if (menuLatex) {
 			confDlg->ui.menuTree->addTopLevelItem(menuLatex);
 			menuLatex->setExpanded(true);
@@ -1472,53 +1565,26 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 	//appearance
 	QString displayedInterfaceStyle = interfaceStyle == "" ? tr("default") : interfaceStyle;
 	confDlg->ui.comboBoxInterfaceStyle->clear();
-	confDlg->ui.comboBoxInterfaceStyle->addItems(QStyleFactory::keys() << tr("default"));
+    QStringList availableStyles=QStyleFactory::keys();
+#ifdef ADWAITA
+    availableStyles << "Adwaita (txs)" << "Adwaita Dark (txs)";
+#endif
+    availableStyles << tr("default");
+    confDlg->ui.comboBoxInterfaceStyle->addItems(availableStyles);
 	confDlg->ui.comboBoxInterfaceStyle->setCurrentIndex(confDlg->ui.comboBoxInterfaceStyle->findText(displayedInterfaceStyle));
 	confDlg->ui.comboBoxInterfaceStyle->setEditText(displayedInterfaceStyle);
 
 	confDlg->fmConfig->setBasePointSize( editorConfig->fontSize );
 	confDlg->fmConfig->addScheme("", QDocument::defaultFormatScheme());
 
-	// custom higlighting
-	{
-		confDlg->environModes = &enviromentModes;
-		int l = 0;
-		confDlg->ui.twHighlighEnvirons->setRowCount(customEnvironments.size() + 1);
-		QMap<QString, QVariant>::const_iterator i;
-		for (i = customEnvironments.constBegin(); i != customEnvironments.constEnd(); ++i) {
-			QString env = i.key();
-			QTableWidgetItem *item = new QTableWidgetItem(env);
-			confDlg->ui.twHighlighEnvirons->setItem(l, 0, item);
-			//item=new QTableWidgetItem(i.value());
-			QComboBox *cb = new QComboBox(0);
-			cb->insertItems(0, enviromentModes);
-			cb->setCurrentIndex(i.value().toInt());
-			confDlg->ui.twHighlighEnvirons->setCellWidget(l, 1, cb);
-			l++;
-		}
-		QTableWidgetItem *item = new QTableWidgetItem("");
-		confDlg->ui.twHighlighEnvirons->setItem(l, 0, item);
-		//item=new QTableWidgetItem(i.value());
-		QComboBox *cb = new QComboBox(0);
-		cb->insertItems(0, enviromentModes);
-		confDlg->ui.twHighlighEnvirons->setCellWidget(l, 1, cb);
-
-		confDlg->ui.twCustomSyntax->setRowCount(LatexParser::getInstance().customCommands.count() + 1);
-		l = 0;
-		foreach (const QString &cmd, LatexParser::getInstance().customCommands) {
-			QTableWidgetItem *item = new QTableWidgetItem(cmd);
-			confDlg->ui.twCustomSyntax->setItem(l, 0, item);
-			l++;
-		}
-		item = new QTableWidgetItem("");
-		confDlg->ui.twCustomSyntax->setItem(l, 0, item);
-	}
 	// set scaling sizes
 	confDlg->ui.horizontalSliderIcon->setValue(guiToolbarIconSize);
 	confDlg->ui.horizontalSliderCentraIcon->setValue(guiSecondaryToolbarIconSize);
 	confDlg->ui.horizontalSliderSymbol->setValue(guiSymbolGridIconSize);
+    confDlg->ui.horizontalSliderPDF->setValue(guiPDFToolbarIconSize);
 	connect(confDlg->ui.horizontalSliderIcon, SIGNAL(valueChanged(int)), SIGNAL(iconSizeChanged(int)));
 	connect(confDlg->ui.horizontalSliderCentraIcon, SIGNAL(valueChanged(int)), SIGNAL(secondaryIconSizeChanged(int)));
+    connect(confDlg->ui.horizontalSliderPDF, SIGNAL(valueChanged(int)), SIGNAL(pdfIconSizeChanged(int)));
 	connect(confDlg->ui.horizontalSliderSymbol, SIGNAL(valueChanged(int)), SIGNAL(symbolGridIconSizeChanged(int)));
 
 	//EXECUTE IT
@@ -1595,7 +1661,6 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 		LatexParser &latexParser = LatexParser::getInstance();
 		latexParser.clear();
 		latexParser.init();
-		//completerConfig->words=loadCwlFiles(newFiles,ltxCommands,completerConfig);
         completerConfig->words.clear();
         QSet<QString>loadedFiles;
         QStringList tobeLoaded=newFiles;
@@ -1622,8 +1687,8 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 		}
 		completerConfig->setFiles(newFiles);
 		//preview
-		previewMode = (PreviewMode) confDlg->ui.comboBoxPreviewMode->currentIndex();
-		buildManager->dvi2pngMode = (BuildManager::Dvi2PngMode) confDlg->ui.comboBoxDvi2PngMode->currentIndex();
+        previewMode = static_cast<PreviewMode>(confDlg->ui.comboBoxPreviewMode->currentIndex());
+        buildManager->dvi2pngMode = static_cast<BuildManager::Dvi2PngMode>(confDlg->ui.comboBoxDvi2PngMode->currentIndex());
 #ifdef NO_POPPLER_PREVIEW
 		if (buildManager->dvi2pngMode == BuildManager::DPM_EMBEDDED_PDF) {
 			buildManager->dvi2pngMode = BuildManager::DPM_DVIPNG; //fallback when poppler is not included
@@ -1690,12 +1755,12 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 		buildManager->setAllCommands(tempCommands, userOrder);
 		/*TODO for (BuildManager::LatexCommand cmd=BuildManager::CMD_LATEX; cmd < BuildManager::CMD_USER_QUICK; ++cmd){
 			if (!commandsToEdits.value(cmd)) continue;
-			buildManager->setLatexCommand(cmd,commandsToEdits.value(cmd)->text());;
+			buildManager->setLatexCommand(cmd,commandsToEdits.value(cmd)->text());
 		}
 
 		for (BuildManager::LatexCommand cmd=BuildManager::CMD_SVN; cmd <= BuildManager::CMD_SVNADMIN; ++cmd){
 			if (!commandsToEdits.value(cmd)) continue;
-			buildManager->setLatexCommand(cmd,commandsToEdits.value(cmd)->text());;
+			buildManager->setLatexCommand(cmd,commandsToEdits.value(cmd)->text());
 		}*/
 
 		/*Q_ASSERT(confDlg->checkboxInternalPDFViewer);
@@ -1739,10 +1804,11 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 
 		//menus
 		managedMenuNewShortcuts.clear();
-#if (QT_VERSION > 0x050000) && (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
+#if (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
 		specialShortcuts.clear();
 #endif
 		treeWidgetToManagedMenuTo(menuShortcuts);
+        updateUserMacroShortcuts(); // update macro shortcuts from menu
 #ifndef NO_POPPLER_PREVIEW
         treeWidgetToManagedMenuTo(menuShortcutsPDF);
 #endif
@@ -1775,32 +1841,17 @@ bool ConfigManager::execConfigDialog(QWidget *parentToDialog)
 		if (language == tr("default")) language = "";
 		if (language != lastLanguage) loadTranslations(language);
 
-		// custom highlighting
-		customEnvironments.clear();
-		for (int i = 0; i < confDlg->ui.twHighlighEnvirons->rowCount(); i++) {
-			QString env = confDlg->ui.twHighlighEnvirons->item(i, 0)->text();
-			if (!env.isEmpty()) {
-				if (env.endsWith("*") && !env.endsWith("\\*"))
-					env.replace(env.length() - 1, 1, "\\*");
-				QComboBox *cb = qobject_cast<QComboBox *>(confDlg->ui.twHighlighEnvirons->cellWidget(i, 1));
-				customEnvironments.insert(env, cb->currentIndex());
-			}
-		}
-		latexParser.customCommands.clear();
-		for (int i = 0; i < confDlg->ui.twCustomSyntax->rowCount(); i++) {
-			QString cmd = confDlg->ui.twCustomSyntax->item(i, 0)->text();
-			if (!cmd.isEmpty())
-				latexParser.customCommands.insert(cmd);
-		}
 		// GUI scaling
 		guiToolbarIconSize = confDlg->ui.horizontalSliderIcon->value();
 		guiSecondaryToolbarIconSize = confDlg->ui.horizontalSliderCentraIcon->value();
 		guiSymbolGridIconSize = confDlg->ui.horizontalSliderSymbol->value();
+        guiPDFToolbarIconSize = confDlg->ui.horizontalSliderPDF->value();
 	} else {
 		// GUI scaling
 		confDlg->ui.horizontalSliderIcon->setValue(guiToolbarIconSize);
 		confDlg->ui.horizontalSliderCentraIcon->setValue(guiSecondaryToolbarIconSize);
 		confDlg->ui.horizontalSliderSymbol->setValue(guiSymbolGridIconSize);
+        confDlg->ui.horizontalSliderPDF->setValue(guiPDFToolbarIconSize);
 
 	}
 	delete confDlg;
@@ -1857,7 +1908,7 @@ void ConfigManager::updateRecentFiles(bool alwaysRecreateMenuItems)
 			act->setVisible(true);
 			QString temp = recentProjectList.at(i);
 			temp.replace("&", "&&");
-			act->setText(tr("Master Document: ") + (i <= 13 ? QString("&%1 ").arg((char)('M' + i)) : "") + QDir::toNativeSeparators(temp));
+            act->setText(tr("Master Document: ") + (i <= 13 ? QString("&%1 ").arg(static_cast<char>('M' + i)) : "") + QDir::toNativeSeparators(temp));
 			act->setData(recentProjectList.at(i));
 		} else act->setVisible(false);
 	}
@@ -1886,7 +1937,7 @@ QMenu *ConfigManager::updateListMenu(const QString &menuName, const QStringList 
 {
 	QSet<int> reservedShortcuts = QSet<int>() << Qt::SHIFT+Qt::Key_F3;  // workaround to prevent overwriting search backward
 	QMenu *menu = getManagedMenu(menuName);
-	REQUIRE_RET(menu, 0);
+    REQUIRE_RET(menu, nullptr);
 	Q_ASSERT(menu->objectName() == menuName);
 	Q_ASSERT(data.isEmpty() || data.length()==items.length());
 	bool hasData = !data.isEmpty();
@@ -1901,7 +1952,7 @@ QMenu *ConfigManager::updateListMenu(const QString &menuName, const QStringList 
 		}
 		if (watchedMenus.contains(menuName))
 			emit watchedMenuChanged(menuName);
-		return 0;
+        return nullptr;
 	}
 	//recreate
 	for (int i = 0; i < actions.count(); i++)
@@ -1925,9 +1976,39 @@ QMenu *ConfigManager::updateListMenu(const QString &menuName, const QStringList 
 	return menu;
 }
 
-void ConfigManager::updateUserMacroMenu(bool alwaysRecreateMenuItems)
+void ConfigManager::clearMenu(QMenu *menu){
+    QList<QObject*> lst=menu->children();
+    foreach(QObject *obj,lst){
+        QMenu *m=qobject_cast<QMenu *>(obj);
+        if(m){
+            clearMenu(m);
+            delete m;
+        }
+    }
+    menu->clear();
+}
+
+void ConfigManager::updateUserMacroShortcuts(){
+    // if the macro shortcuts have been changed via options, the macros needs to be updated to reflect that shortcuts
+    int i=0;
+    for(auto &m : completerConfig->userMacros){
+        if (!m.document){
+            QString mn=m.menu;
+            if(!mn.isEmpty()){
+                mn.append('/');
+            }
+            QString id = "main/macros/"+mn+"tag" + QString::number(i);
+            QAction *act = getManagedAction(id);
+            if(act){
+                m.setShortcut(act->shortcut().toString());
+            }
+            i++;
+        }
+    }
+}
+
+void ConfigManager::updateUserMacroMenu()
 {
-	QStringList macronames;
 	// remove quote replacement from list
 	for (int i = 0; i < completerConfig->userMacros.count(); i++) {
 		Macro m = completerConfig->userMacros.at(i);
@@ -1937,16 +2018,32 @@ void ConfigManager::updateUserMacroMenu(bool alwaysRecreateMenuItems)
 		}
 	}
 
-	foreach (const Macro &m, completerConfig->userMacros)
-		if (!m.document)
-			macronames << m.name;
+    QMenu *recreatedMenu = getManagedMenu("main/macros");
+    clearMenu(recreatedMenu);
+    int i=0;
+    QMenu *menu=nullptr;
+    foreach (const Macro &m, completerConfig->userMacros){
+        if (!m.document){
+            menu=recreatedMenu;
+            QList<QKeySequence> shortcuts;
+            if(!m.shortcut().isEmpty()){
+                shortcuts<<QKeySequence(m.shortcut());
+            }
+            // create/find apropriate submenu
+            if(!m.menu.isEmpty()){
+                foreach(const QString &name,m.menu.split("/")){
+                    menu=newManagedMenu(menu,name,name);
+                }
+            }
 
-	QMenu *recreatedMenu = updateListMenu("main/macros", macronames, "tag", false, SLOT(insertUserTag()), Qt::SHIFT + Qt::Key_F1, alwaysRecreateMenuItems);
-	if (recreatedMenu) {
-		recreatedMenu->addSeparator();
-		newOrLostOldManagedAction(recreatedMenu, "manage", QCoreApplication::translate("Texstudio", "Edit &Macros..."), SLOT(editMacros()));
-	}
-	// update quote replacement
+            QString id = "tag" + QString::number(i);
+            QAction *act = newOrLostOldManagedAction(menu, id, m.name , SLOT(insertUserTag()), shortcuts);
+            act->setData(i++);
+        }
+    }
+    recreatedMenu->addSeparator();
+    newOrLostOldManagedAction(recreatedMenu, "manage", QCoreApplication::translate("Texstudio", "Edit &Macros..."), SLOT(editMacros()));
+    // update quote replacement
 	const int autoQuoteCount = 10;
 	if (replaceQuotes >= 1 && replaceQuotes < autoQuoteCount) {
 		static const char *open[autoQuoteCount] = {"",  "``", "\"<", "\"`", "\\og ",  "\">", "\\enquote{", "\xE2\x80\x9C" /*“*/, ",,", "\u201E"};
@@ -2017,7 +2114,7 @@ QMenu *ConfigManager::newManagedMenu(QMenu *menu, const QString &id, const QStri
 QAction *ConfigManager::newManagedAction(QWidget *menu, const QString &id, const QString &text, const char *slotName, const QList<QKeySequence> &shortCuts, const QString &iconFile)
 {
 	if (!menuParent) qFatal("No menu parent!");
-	REQUIRE_RET(menu, 0);
+    REQUIRE_RET(menu, nullptr);
 	QString menuId = menu->objectName();
 	QString completeId = menu->objectName() + "/" + id;
 
@@ -2037,7 +2134,7 @@ QAction *ConfigManager::newManagedAction(QWidget *menu, const QString &id, const
 
 	act->setObjectName(completeId);
 	act->setShortcuts(shortCuts);
-#if (QT_VERSION > 0x050000) && (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
+#if (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
 	// workaround for osx not being able to use alt+key/esc as shortcut
 	for (int i = 0; i < shortCuts.size(); i++)
 		specialShortcuts.insert(shortCuts[i], act);
@@ -2057,7 +2154,7 @@ QAction *ConfigManager::newManagedAction(QWidget *menu, const QString &id, const
 QAction *ConfigManager::newManagedAction(QObject *rootMenu,QWidget *menu, const QString &id, const QString &text, QObject *obj,const char *slotName, const QList<QKeySequence> &shortCuts, const QString &iconFile)
 {
     if (!obj) qFatal("No menu parent!");
-    REQUIRE_RET(menu, 0);
+    REQUIRE_RET(menu, nullptr);
     QString menuId = menu->objectName();
     QString completeId = menu->objectName() + "/" + id;
 
@@ -2075,9 +2172,9 @@ QAction *ConfigManager::newManagedAction(QObject *rootMenu,QWidget *menu, const 
     if (iconFile.isEmpty()) act = new QAction(text, rootMenu);
     else act = new QAction(getRealIcon(iconFile), text, rootMenu);
 
-    act->setObjectName(completeId);
+	act->setObjectName(completeId);
     act->setShortcuts(shortCuts);
-#if (QT_VERSION > 0x050000) && (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
+#if (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
     // workaround for osx not being able to use alt+key/esc as shortcut
     for (int i = 0; i < shortCuts.size(); i++)
         specialShortcuts.insert(shortCuts[i], act);
@@ -2108,6 +2205,7 @@ QAction *ConfigManager::newOrLostOldManagedAction(QWidget *menu, const QString &
 		return newManagedAction(menu, id, text, slotName, shortCuts, iconFile);
 	menu->addAction(old);
 	old->setText(text);
+    old->setShortcuts(shortCuts);
 	if (watchedMenus.contains(menu->objectName()))
 		emit watchedMenuChanged(menu->objectName());
 	return old;
@@ -2131,7 +2229,7 @@ QAction *ConfigManager::newManagedAction(QWidget *menu, const QString &id, QActi
 
 QAction *ConfigManager::getManagedAction(const QString &id)
 {
-	QAction *act = 0;
+    QAction *act = nullptr;
     if(menuParents.count()>0){
         for(int i=0;i<menuParents.count();i++){
             QObject *obj=menuParents.at(i);
@@ -2140,14 +2238,14 @@ QAction *ConfigManager::getManagedAction(const QString &id)
                 break;
         }
     }
-	if (act == 0) qWarning("Can't find internal action %s", id.toLatin1().data());
+    if (act == nullptr) qWarning("Can't find internal action %s", id.toLatin1().data());
 	return act;
 }
 
 QList<QAction *>ConfigManager::getManagedActions(const QString &id)
 {
     QList<QAction *>actions;
-    QAction *act = 0;
+    QAction *act = nullptr;
     if(menuParents.count()>0){
         for(int i=0;i<menuParents.count();i++){
             QObject *obj=menuParents.at(i);
@@ -2169,7 +2267,7 @@ QList<QAction *> ConfigManager::getManagedActions(const QStringList &ids, const 
 	}
 	foreach (const QString &id, ids) {
 		QAction *act = menuParent->findChild<QAction *>(commonPrefix + id);
-		if (act == 0) qWarning("Can't find internal action %s", id.toLatin1().data());
+        if (act == nullptr) qWarning("Can't find internal action %s", id.toLatin1().data());
 		else actions << act;
 	}
 	return actions;
@@ -2177,9 +2275,9 @@ QList<QAction *> ConfigManager::getManagedActions(const QStringList &ids, const 
 
 QMenu *ConfigManager::getManagedMenu(const QString &id)
 {
-	QMenu *menu = 0;
+    QMenu *menu = nullptr;
 	if (menuParent) menu = menuParent->findChild<QMenu *>(id);
-	if (menu == 0) qWarning("Can't find internal menu %s", id.toLatin1().data());
+    if (menu == nullptr) qWarning("Can't find internal menu %s", id.toLatin1().data());
 	return menu;
 }
 
@@ -2327,7 +2425,7 @@ void ConfigManager::modifyMenuContent(QStringList &ids, const QString &id)
 	QStringList m = i.value().toStringList();
 	//qDebug() << id << ": ===> " << m.join(", ");
 	QAction *act = menuParent->findChild<QAction *>(id);
-	QMenu *mainMenu = 0;
+    QMenu *mainMenu = nullptr;
 	if (!act) {
 		mainMenu = menuParent->findChild<QMenu *>(id);
 		if (mainMenu) act = mainMenu->menuAction();
@@ -2337,7 +2435,7 @@ void ConfigManager::modifyMenuContent(QStringList &ids, const QString &id)
 		newlyCreated = true;
 		QString before = m.value(3);
 		modifyMenuContent(ids, before);
-		QAction *prevact = 0;
+        QAction *prevact = nullptr;
 		if (!before.endsWith('/'))
 			prevact = menuParent->findChild<QAction *>(before);
 		else {
@@ -2370,7 +2468,7 @@ void ConfigManager::modifyMenuContent(QStringList &ids, const QString &id)
 					defSlot = tempmenu->property("defaultSlot").toByteArray();
 				}
 			}
-			act = newManagedAction(menu, ownId, m.first(), defSlot.isEmpty() ? 0 : defSlot.data());
+            act = newManagedAction(menu, ownId, m.first(), defSlot.isEmpty() ? nullptr : defSlot.data());
 		}
 		if  (prevact) {
 			menu->removeAction(act);
@@ -2433,7 +2531,7 @@ void ConfigManager::setManagedShortCut(QAction *act, int num, const QKeySequence
 	if (num < shortcuts.size()) shortcuts[num] = ks;
 	else shortcuts << ks;
 	act->setShortcuts(shortcuts);
-#if (QT_VERSION > 0x050000) && (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
+#if (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
 	// workaround for osx not being able to use alt+key/esc as shortcut
     // remove old shortcuts
     QString name=act->objectName();
@@ -2495,7 +2593,7 @@ void ConfigManager::loadManagedMenus(const QString &f)
 
 		for (int i = 0; i < f.count(); i++)
 			if (f.at(i).nodeName() == "menu")
-				loadManagedMenu(0, f.at(i).toElement());
+                loadManagedMenu(nullptr, f.at(i).toElement());
 	}
 }
 
@@ -2559,82 +2657,146 @@ void ConfigManager::loadTranslations(QString locale)
 		if (locale.length() < 2) locale = "en";
 	}
 	QString txsTranslationFile = findResourceFile("texstudio_" + locale + ".qm");
-	//if (txsTranslationFile!="") {
+
+    if (txsTranslationFile.isEmpty()) {
+        txsTranslationFile = findResourceFile("translation/texstudio_" + locale + ".qm");
+    }
 	appTranslator->load(txsTranslationFile);
 	basicTranslator->load(findResourceFile("qt_" + locale + ".qm"));
 	//}
 }
-
+/*!
+ * \brief set txs InterfaceStyle
+ * Fall-back to default style if none is defined
+ * Also detect whether light- or dark-mode is used by checking the colour of text (white -> dark background -> dark mode)
+ */
 void ConfigManager::setInterfaceStyle()
 {
 	//style is controlled by the properties interfaceStyle, modernStyle and useTexmakerPalette
 	//default values are read from systemPalette and defaultStyleName
 
 	QString newStyle = interfaceStyle != "" ? interfaceStyle : defaultStyleName;
-#if QT_VERSION >= 0x040500
-	if (modernStyle) {
-		ManhattanStyle *style = new ManhattanStyle(newStyle);
-		if (style->isValid()) QApplication::setStyle(style);
-	} else
+
+    bool handled=false;
+#ifdef ADWAITA
+    if(newStyle=="Adwaita (txs)"){
+        QApplication::setStyle(new Adwaita::Style(false));
+        handled=true;
+    }
+    if(newStyle=="Adwaita Dark (txs)"){
+        QApplication::setStyle(new Adwaita::Style(true));
+        handled=true;
+    }
 #endif
-		QApplication::setStyle(newStyle);
-	QPalette pal = systemPalette;
-	if (useTexmakerPalette) { //modify palette like texmaker does it
-		pal.setColor(QPalette::Active, QPalette::Highlight, QColor("#4490d8"));
-		pal.setColor(QPalette::Inactive, QPalette::Highlight, QColor("#4490d8"));
-		pal.setColor(QPalette::Disabled, QPalette::Highlight, QColor("#4490d8"));
+    if(!handled){
+        if (!QStyleFactory::keys().contains(newStyle)) newStyle = defaultStyleName;
 
-		pal.setColor(QPalette::Active, QPalette::HighlightedText, QColor("#ffffff"));
-		pal.setColor(QPalette::Inactive, QPalette::HighlightedText, QColor("#ffffff"));
-		pal.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor("#ffffff"));
+        if (modernStyle) {
+            ManhattanStyle *style = new ManhattanStyle(newStyle);
+            if (style->isValid()) QApplication::setStyle(style);
+        } else
+            QApplication::setStyle(newStyle);
+    }
 
-		pal.setColor(QPalette::Active, QPalette::Base, QColor("#ffffff"));
-		pal.setColor(QPalette::Inactive, QPalette::Base, QColor("#ffffff"));
-		pal.setColor(QPalette::Disabled, QPalette::Base, QColor("#ffffff"));
 
-		pal.setColor(QPalette::Active, QPalette::WindowText, QColor("#000000"));
-		pal.setColor(QPalette::Inactive, QPalette::WindowText, QColor("#000000"));
-		pal.setColor(QPalette::Disabled, QPalette::WindowText, QColor("#000000"));
+    // dark mode is derived from system text color (very light => dark mode)
+    // however if system colors are ignored, only style manhattan - dark results in dark mode
+    // do the check after setting style, as the style can also activate a dark mode
+    if(useTexmakerPalette){
+        darkMode=modernStyle>1;
+    }else{
+        darkMode=systemUsesDarkMode();
+    }
 
-		pal.setColor( QPalette::Active, QPalette::Text, QColor("#000000") );
-		pal.setColor( QPalette::Inactive, QPalette::Text, QColor("#000000") );
-		pal.setColor( QPalette::Disabled, QPalette::Text, QColor("#000000") );
+    QPalette pal = systemPalette;
+    if (useTexmakerPalette) { //modify palette like texmaker does it
+        if(darkMode){
+            pal.setColor(QPalette::Active, QPalette::Highlight, QColor("#4490d8"));
+            pal.setColor(QPalette::Inactive, QPalette::Highlight, QColor("#4490d8"));
+            pal.setColor(QPalette::Disabled, QPalette::Highlight, QColor("#4490d8"));
 
-		pal.setColor(QPalette::Active, QPalette::ButtonText, QColor("#000000"));
-		pal.setColor(QPalette::Inactive, QPalette::ButtonText, QColor("#000000"));
-		pal.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#000000"));
+            pal.setColor(QPalette::Active, QPalette::HighlightedText, QColor("#FFFFFF"));
+            pal.setColor(QPalette::Inactive, QPalette::HighlightedText, QColor("#ffffff"));
+            pal.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor("#ffffff"));
 
-		pal.setColor( QPalette::ToolTipText, QColor("#000000") );
+            pal.setColor(QPalette::Active, QPalette::Base, QColor("#303030"));
+            pal.setColor(QPalette::Inactive, QPalette::Base, QColor("#303030"));
+            pal.setColor(QPalette::Disabled, QPalette::Base, QColor("#303030"));
 
-		pal.setColor( QPalette::ToolTipBase, QColor("#FFFFDC") );
+            pal.setColor(QPalette::Active, QPalette::WindowText, QColor("#e0e0e0"));
+            pal.setColor(QPalette::Inactive, QPalette::WindowText, QColor("#e0e0e0"));
+            pal.setColor(QPalette::Disabled, QPalette::WindowText, QColor("#e0e0e0"));
 
-		if (x11desktop_env() == 4) {
-			pal.setColor(QPalette::Active, QPalette::Window, QColor("#eae9e9"));
-			pal.setColor(QPalette::Inactive, QPalette::Window, QColor("#eae9e9"));
-			pal.setColor(QPalette::Disabled, QPalette::Window, QColor("#eae9e9"));
+            pal.setColor( QPalette::Active, QPalette::Text, QColor("#ffffff") );
+            pal.setColor( QPalette::Inactive, QPalette::Text, QColor("#ffffff") );
+            pal.setColor( QPalette::Disabled, QPalette::Text, QColor("#ffffff") );
 
-			pal.setColor(QPalette::Active, QPalette::Button, QColor("#eae9e9"));
-			pal.setColor(QPalette::Inactive, QPalette::Button, QColor("#eae9e9"));
-			pal.setColor(QPalette::Disabled, QPalette::Button, QColor("#eae9e9"));
-		} else {
-			/*pal.setColor(QPalette::Active, QPalette::Window, QColor("#fbf8f1"));
-			pal.setColor(QPalette::Inactive, QPalette::Window, QColor("#fbf8f1"));
-			pal.setColor(QPalette::Disabled, QPalette::Window, QColor("#fbf8f1"));
+            pal.setColor(QPalette::Active, QPalette::ButtonText, QColor("#f0f0f0"));
+            pal.setColor(QPalette::Inactive, QPalette::ButtonText, QColor("#ffffff"));
+            pal.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#ffffff"));
 
-			pal.setColor(QPalette::Active, QPalette::Button, QColor("#fbf8f1"));
-			pal.setColor(QPalette::Inactive, QPalette::Button, QColor("#fbf8f1"));
-			pal.setColor(QPalette::Disabled, QPalette::Button, QColor("#fbf8f1"));*/
-			pal.setColor( QPalette::Active, QPalette::Window, QColor("#f6f3eb") );
-			pal.setColor( QPalette::Inactive, QPalette::Window, QColor("#f6f3eb") );
-			pal.setColor( QPalette::Disabled, QPalette::Window, QColor("#f6f3eb") );
+            pal.setColor( QPalette::ToolTipText, QColor("#ffffff") );
 
-			pal.setColor( QPalette::Active, QPalette::Button, QColor("#f6f3eb") );
-			pal.setColor( QPalette::Inactive, QPalette::Button, QColor("#f6f3eb") );
-			pal.setColor( QPalette::Disabled, QPalette::Button, QColor("#f6f3eb") );
+            pal.setColor( QPalette::ToolTipBase, QColor("#002020") );
 
-		}
-	}
-	QApplication::setPalette(pal);
+            pal.setColor( QPalette::Active, QPalette::Window, QColor("#000000") );
+            pal.setColor( QPalette::Inactive, QPalette::Window, QColor("#000000") );
+            pal.setColor( QPalette::Disabled, QPalette::Window, QColor("#000000") );
+
+            pal.setColor( QPalette::Active, QPalette::Button, QColor("#2a2a2a") );
+            pal.setColor( QPalette::Inactive, QPalette::Button, QColor("#2a2a2a") );
+            pal.setColor( QPalette::Disabled, QPalette::Button, QColor("#2a2a2a") );
+
+        }else{
+            pal.setColor(QPalette::Active, QPalette::Highlight, QColor("#4490d8"));
+            pal.setColor(QPalette::Inactive, QPalette::Highlight, QColor("#4490d8"));
+            pal.setColor(QPalette::Disabled, QPalette::Highlight, QColor("#4490d8"));
+
+            pal.setColor(QPalette::Active, QPalette::HighlightedText, QColor("#ffffff"));
+            pal.setColor(QPalette::Inactive, QPalette::HighlightedText, QColor("#ffffff"));
+            pal.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor("#ffffff"));
+
+            pal.setColor(QPalette::Active, QPalette::Base, QColor("#ffffff"));
+            pal.setColor(QPalette::Inactive, QPalette::Base, QColor("#ffffff"));
+            pal.setColor(QPalette::Disabled, QPalette::Base, QColor("#ffffff"));
+
+            pal.setColor(QPalette::Active, QPalette::WindowText, QColor("#000000"));
+            pal.setColor(QPalette::Inactive, QPalette::WindowText, QColor("#000000"));
+            pal.setColor(QPalette::Disabled, QPalette::WindowText, QColor("#000000"));
+
+            pal.setColor( QPalette::Active, QPalette::Text, QColor("#000000") );
+            pal.setColor( QPalette::Inactive, QPalette::Text, QColor("#000000") );
+            pal.setColor( QPalette::Disabled, QPalette::Text, QColor("#000000") );
+
+            pal.setColor(QPalette::Active, QPalette::ButtonText, QColor("#000000"));
+            pal.setColor(QPalette::Inactive, QPalette::ButtonText, QColor("#000000"));
+            pal.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#000000"));
+
+            pal.setColor( QPalette::ToolTipText, QColor("#000000") );
+
+            pal.setColor( QPalette::ToolTipBase, QColor("#FFFFDC") );
+
+            if (x11desktop_env() == 4) {
+                pal.setColor(QPalette::Active, QPalette::Window, QColor("#eae9e9"));
+                pal.setColor(QPalette::Inactive, QPalette::Window, QColor("#eae9e9"));
+                pal.setColor(QPalette::Disabled, QPalette::Window, QColor("#eae9e9"));
+
+                pal.setColor(QPalette::Active, QPalette::Button, QColor("#eae9e9"));
+                pal.setColor(QPalette::Inactive, QPalette::Button, QColor("#eae9e9"));
+                pal.setColor(QPalette::Disabled, QPalette::Button, QColor("#eae9e9"));
+            } else {
+                pal.setColor( QPalette::Active, QPalette::Window, QColor("#f6f3eb") );
+                pal.setColor( QPalette::Inactive, QPalette::Window, QColor("#f6f3eb") );
+                pal.setColor( QPalette::Disabled, QPalette::Window, QColor("#f6f3eb") );
+
+                pal.setColor( QPalette::Active, QPalette::Button, QColor("#f6f3eb") );
+                pal.setColor( QPalette::Inactive, QPalette::Button, QColor("#f6f3eb") );
+                pal.setColor( QPalette::Disabled, QPalette::Button, QColor("#f6f3eb") );
+
+            }
+        }
+    }
+    QApplication::setPalette(pal);
 }
 
 /*! GridLayout::rowCount() apparently never decreases. Instead there may be empty rows at the end
@@ -2874,7 +3036,7 @@ void ConfigManager::browseCommand()
 		if (path.startsWith('"')) path = path.remove(0, 1);
 		if (path.endsWith('"')) path.chop(1);
 	}
-	QString location = FileDialog::getOpenFileName(0, tr("Browse program"), path, "Program (*)", 0, QFileDialog::DontResolveSymlinks);
+    QString location = FileDialog::getOpenFileName(nullptr, tr("Browse program"), path, "Program (*)", nullptr, QFileDialog::DontResolveSymlinks);
 	if (!location.isEmpty()) {
 		location.replace(QString("\\"), QString("/"));
 		location = "\"" + location + "\" " + tempCommands.value(getCmdID(w)).defaultArgs;
@@ -2964,7 +3126,7 @@ void ConfigManager::removeCommand()
 		QWidget *w = li->widget();
 		if (w && nameWidget != li->widget()->property(PROPERTY_NAME_WIDGET).value<QWidget *>()) break;
 		userGridLayout->removeItem(li);
-		if (w) delete w;
+        delete w;
 		delete li;
 	}
 	delete userGridLayout->takeAt(index);
@@ -3068,7 +3230,7 @@ void ConfigManager::moveCommand(int dir, int atRow)
 // manipulate latex menus
 QTreeWidgetItem *ConfigManager::managedLatexMenuToTreeWidget(QTreeWidgetItem *parent, QMenu *menu)
 {
-	if (!menu) return 0;
+    if (!menu) return nullptr;
 	static QStringList relevantMenus = QStringList() << "main/tools" << "main/latex" << "main/math";
 	QTreeWidgetItem *menuitem = new QTreeWidgetItem(parent, QStringList(menu->title()));
 	bool advanced = false;
@@ -3092,7 +3254,7 @@ QTreeWidgetItem *ConfigManager::managedLatexMenuToTreeWidget(QTreeWidgetItem *pa
 	QList<QAction *> acts = menu->actions();
 	for (int i = 0; i < acts.size(); i++) {
 		bool subAdvanced = advanced;
-		QTreeWidgetItem *twi = 0;
+        QTreeWidgetItem *twi = nullptr;
 		if (acts[i]->menu()) twi = managedLatexMenuToTreeWidget(menuitem, acts[i]->menu());
 		else {
 			subAdvanced |= !acts[i]->data().isValid();
@@ -3226,7 +3388,7 @@ void ConfigManager::registerOption(const QString &name, void *storage, PropertyT
 	temp.storage = storage;
 	temp.type = type;
 	temp.def = def;
-	temp.widgetOffset = (ptrdiff_t)displayWidgetOffset;
+    temp.widgetOffset = reinterpret_cast<ptrdiff_t>(displayWidgetOffset);
 	managedProperties << temp;
 
 	if (persistentConfig) {
@@ -3238,7 +3400,7 @@ void ConfigManager::registerOption(const QString &name, void *storage, PropertyT
 
 void ConfigManager::registerOption(const QString &name, void *storage, PropertyType type, QVariant def)
 {
-	registerOption(name, storage, type, def, 0);
+    registerOption(name, storage, type, def, nullptr);
 }
 
 #define REGISTER_OPTION(TYPE, ID) \
@@ -3246,7 +3408,7 @@ void ConfigManager::registerOption(const QString &name, void *storage, PropertyT
 		registerOption(name, storage, ID, def, displayWidgetOffset); \
 	} \
 	void ConfigManager::registerOption(const QString& name, TYPE* storage, QVariant def){ \
-		registerOption(name, storage, ID, def, 0); \
+        registerOption(name, storage, ID, def, nullptr); \
 	}
 PROPERTY_TYPE_FOREACH_MACRO(REGISTER_OPTION)
 #undef REGISTER_OPTION
@@ -3256,7 +3418,7 @@ void ConfigManager::setOption(const QString &name, const QVariant &value)
 {
 	REQUIRE(persistentConfig);
 	QString rname = name.startsWith("/") ? name.mid(1) : ("texmaker/" + name);
-	ManagedProperty *option = 0;
+    ManagedProperty *option = nullptr;
 	if (rname.startsWith("texmaker/") && ((option = getManagedProperty(rname.mid(9))))) {
 		option->valueFromQVariant(value);
 		return;
@@ -3268,7 +3430,7 @@ QVariant ConfigManager::getOption(const QString &name, const QVariant &defaultVa
 {
 	REQUIRE_RET(persistentConfig, QVariant());
 	QString rname = name.startsWith("/") ? name.mid(1) : ("texmaker/" + name);
-	const ManagedProperty *option = 0;
+    const ManagedProperty *option = nullptr;
 	if (rname.startsWith("texmaker/") && (option = getManagedProperty(rname.mid(9))))
 		return option->valueToQVariant();
 	return persistentConfig->value(rname, defaultValue);
@@ -3332,21 +3494,21 @@ ManagedProperty *ConfigManager::getManagedProperty(const void *storage)
 {
 	for (int i = 0; i < managedProperties.size(); i++)
 		if (managedProperties[i].storage == storage) return &managedProperties[i];
-	return 0;
+    return nullptr;
 }
 
 ManagedProperty *ConfigManager::getManagedProperty(const QString &name)
 {
 	for (int i = 0; i < managedProperties.size(); i++)
 		if (managedProperties[i].name == name) return &managedProperties[i];
-	return 0;
+    return nullptr;
 }
 
 const ManagedProperty *ConfigManager::getManagedProperty(const QString &name) const
 {
 	for (int i = 0; i < managedProperties.size(); i++)
 		if (managedProperties[i].name == name) return &managedProperties[i];
-	return 0;
+    return nullptr;
 }
 
 void ConfigManager::getDefaultEncoding(const QByteArray &, QTextCodec *&guess, int &sure)
@@ -3449,10 +3611,10 @@ void ConfigManager::managedOptionBoolToggled()
 	ManagedProperty *property = sender()->property("managedProperty").value<ManagedProperty *>();
 	REQUIRE(property);
 	REQUIRE(property->type == PT_BOOL);
-	if ((state > 0) == *(bool *)(property->storage)) return;
+    if ((state > 0) == *static_cast<bool *>(property->storage)) return;
 	if (managedOptionObjects[property].first & LO_DIRECT_OVERRIDE) {
 		//full sync
-		*(bool *)property->storage = (state > 0);
+        *static_cast<bool *>(property->storage) = (state > 0);
 	} else {
 		//voting
 		int totalState = 0;
@@ -3460,8 +3622,8 @@ void ConfigManager::managedOptionBoolToggled()
 			totalState += isChecked(o);
 
 		if (totalState == 0) totalState = state;
-		if ((totalState > 0) == *(bool *)(property->storage)) return;
-		*(bool *)property->storage = (totalState > 0);
+        if ((totalState > 0) == *static_cast<bool *>(property->storage)) return;
+        *static_cast<bool *>(property->storage) = (totalState > 0);
 	}
 	updateManagedOptionObjects(property);
 }

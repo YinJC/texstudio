@@ -11,11 +11,11 @@
  *
  * It maintains the knowledge of the currentEditor() and the currentTabWidget().
  * Also, it sends appropriate signals to the editors and tabWidgets and provides
- * singals to hook to these changes.
+ * signals to hook to these changes.
  *
  * Currently this class serves two purposes:
  *
- * 1) It maintains and abstract order of editors. Editors can be grouped (currently
+ * 1) It maintains an abstract order of editors. Editors can be grouped (currently
  *    implemented as tabs in tabWidgets). The groups are ordered and the editors
  *    within a group are ordered, thus providing a complete order of all editors.
  *    The main purpose of this class it to provide an interface to this order, which
@@ -30,7 +30,7 @@
  *    class should depend on this as little as possible.
  */
 Editors::Editors(QWidget *parent) :
-	QWidget(parent), splitter(0), currentGroupIndex(-1)
+    QWidget(parent), splitter(nullptr), currentGroupIndex(-1)
 {
 	splitter = new MiniSplitter(Qt::Horizontal);
 	splitter->setChildrenCollapsible(false);
@@ -214,13 +214,13 @@ TxsTabWidget *Editors::currentTabWidget() const
 {
 	if (currentGroupIndex >= 0 && currentGroupIndex < tabGroups.length())
 		return tabGroups[currentGroupIndex];
-	return 0;
+    return nullptr;
 }
 
 LatexEditorView *Editors::currentEditor() const
 {
 	TxsTabWidget *tabs = currentTabWidget();
-	if (!tabs) return 0;
+    if (!tabs) return nullptr;
 	return qobject_cast<LatexEditorView *>(tabs->currentWidget());
 }
 
@@ -425,7 +425,7 @@ void Editors::tabBarContextMenu(const QPoint &point)
 
 void Editors::onEditorChangeByTabClick(LatexEditorView *from, LatexEditorView *to)
 {
-	Q_UNUSED(from);
+	Q_UNUSED(from)
 	// the original event comes from a tab widget. from is the previously selected tab in that widget
 	// which has not been the current one one if the tab widget has not been the current
 	emit editorAboutToChangeByTabClick(currentEditor(), to);
@@ -479,7 +479,12 @@ void Editors::moveToTabGroup(LatexEditorView *edView, TxsTabWidget *target, int 
 {
 	if (!target || target->containsEditor(edView)) {
 		// only move within the tab
-		if (target == 0) target = tabWidgetFromEditor(edView);
+        if (target == nullptr) target = tabWidgetFromEditor(edView);
+        if (target == nullptr) {
+            // the tab is REALLY not there, see crash in issue #899
+            insertEditor(edView,targetIndex);
+            return;
+        }
 		if (targetIndex < 0) targetIndex = qMax(0, target->count() - 1);
 		int currentIndex = target->indexOf(edView);
 		if (currentIndex != targetIndex) {  // nothing todo otherwise
@@ -520,7 +525,7 @@ int Editors::tabGroupIndexFromEditor(LatexEditorView *edView) const
 TxsTabWidget *Editors::tabWidgetFromEditor(LatexEditorView *edView) const
 {
 	int group = tabGroupIndexFromEditor(edView);
-	if (group < 0) return 0;
+    if (group < 0) return nullptr;
 	return tabGroups[group];
 }
 
@@ -561,7 +566,7 @@ void Editors::setCurrentGroup(int index)
  * If you have return statements in the intermediate code, be sure to place the release command
  * also before every return.
  */
-EditorChangeProxy::EditorChangeProxy(Editors *e) : editors(e), currentEditorAtBlock(0), blocked(false) {}
+EditorChangeProxy::EditorChangeProxy(Editors *e) : editors(e), currentEditorAtBlock(nullptr), blocked(false) {}
 
 //#define ecpDebug(x) qDebug(x)
 #define ecpDebug(x)

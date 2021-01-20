@@ -27,7 +27,7 @@ public:
 
 	static int commentStart(const QString &text);
 	static QString cutComment(const QString &text);
-	static bool resolveCommandOptions(const QString &line, int column, QStringList &values, QList<int> *starts = 0);
+    static bool resolveCommandOptions(const QString &line, int column, QStringList &values, QList<int> *starts = nullptr);
 	static QString removeOptionBrackets(const QString &option);
 	int structureDepth()
 	{
@@ -44,7 +44,7 @@ public:
 	QStringList mathStartCommands; ///< commands to start math-mode like '$'
 	QStringList mathStopCommands; ///< commands to stop math-mode like '$'
 	QSet<QString> customCommands; ///< commands defined in config dialog as custom commands
-	QMultiHash<QString, QString> packageAliases; ///< aliases for classes to packages e.g. article = latex-document, latex-mathsymbols, etc
+	QMultiHash<QString, QString> packageAliases; ///< aliases for classes to packages e.g. article = latex-document, etc
 	QMultiHash<QString, QString> environmentAliases; ///< aliases for environments, e.g. equation is math, supertabular is also tab etc.
 	/// commands used for syntax check (per doc basis)
 	QHash<QString, QSet<QString> > possibleCommands;
@@ -57,7 +57,7 @@ public:
 	void append(const LatexParser &elem); ///< append values
 	void substract(const LatexParser &elem); ///< remove values
 	void clear(); ///< set to default values
-	void importCwlAliases(QString filename); ///< import package aliases from disc
+    void importCwlAliases(const QString filename); ///< import package aliases from disc
 };
 Q_DECLARE_METATYPE(LatexParser)
 

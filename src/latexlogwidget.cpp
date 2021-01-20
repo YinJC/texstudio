@@ -22,7 +22,7 @@ int getOptimalRowHeight(QTableView *tableView)
 }
 
 LatexLogWidget::LatexLogWidget(QWidget *parent) :
-	QWidget(parent), logModel(0), proxyModel(0), logpresent(false), filterErrorAction(0), filterWarningAction(0), filterBadBoxAction(0)
+    QWidget(parent), logModel(nullptr), proxyModel(nullptr), logpresent(false), filterErrorAction(nullptr), filterWarningAction(nullptr), filterBadBoxAction(nullptr)
 {
 	logModel = new LatexLogModel(this);//needs loaded line marks
 
@@ -32,11 +32,11 @@ LatexLogWidget::LatexLogWidget(QWidget *parent) :
 	QFontMetrics fm(QApplication::font());
 	errorTable->setSelectionBehavior(QAbstractItemView::SelectRows);
 	errorTable->setSelectionMode(QAbstractItemView::SingleSelection);
-	errorTable->setColumnWidth(0, fm.width("> "));
-	errorTable->setColumnWidth(1, 20 * fm.width("w"));
-	errorTable->setColumnWidth(2, fm.width("WarningW"));
-	errorTable->setColumnWidth(3, fm.width("Line WWWWW"));
-	errorTable->setColumnWidth(4, 20 * fm.width("w"));
+	errorTable->setColumnWidth(0, UtilsUi::getFmWidth(fm, "> "));
+	errorTable->setColumnWidth(1, 20 * UtilsUi::getFmWidth(fm, "w"));
+	errorTable->setColumnWidth(2, UtilsUi::getFmWidth(fm, "WarningW"));
+	errorTable->setColumnWidth(3, UtilsUi::getFmWidth(fm, "Line WWWWW"));
+	errorTable->setColumnWidth(4, 20 * UtilsUi::getFmWidth(fm, "w"));
 	connect(errorTable, SIGNAL(clicked(const QModelIndex &)), this, SLOT(clickedOnLogModelIndex(const QModelIndex &)));
 
 	errorTable->horizontalHeader()->setStretchLastSection(true);
@@ -72,7 +72,7 @@ LatexLogWidget::LatexLogWidget(QWidget *parent) :
 	splitter->addWidget(log);
 
 	infoLabel = new QLabel(tr("No log file available"), this);
-	infoLabel->setStyleSheet("background: #FFFBBF;");
+	infoLabel->setStyleSheet("color: black; background: #FFFBBF;");
 	infoLabel->setMargin(2);
 
 	QVBoxLayout *vLayout = new QVBoxLayout(); //contains the widgets for the normal mode (OutputTable + OutputLogTextEdit)
@@ -124,10 +124,15 @@ bool LatexLogWidget::loadLogFile(const QString &logname, const QString &compiled
 
 	QFile f(logname);
 	if (f.open(QIODevice::ReadOnly)) {
-		double fileSizeLimitMB = ConfigManagerInterface::getInstance()->getOption("LogView/WarnIfFileSizeLargerMB").toDouble();
-		if (f.size() > fileSizeLimitMB * 1024 * 1024 &&
-		        !UtilsUi::txsConfirmWarning(tr("The logfile is very large (%1 MB) are you sure you want to load it?").arg(double(f.size()) / 1024 / 1024, 0, 'f', 2)))
-			return false;
+        ConfigManagerInterface *config=ConfigManagerInterface::getInstance();
+        double fileSizeLimitMB = config->getOption("LogView/WarnIfFileSizeLargerMB").toDouble();
+        UtilsUi::txsWarningState rememberChoice=static_cast<UtilsUi::txsWarningState>(config->getOption("LogView/RememberChoiceLargeFile",0).toInt());
+        if (f.size() > fileSizeLimitMB * 1024 * 1024){
+            bool result=UtilsUi::txsConfirmWarning(tr("The logfile is very large (%1 MB) are you sure you want to load it?").arg(double(f.size()) / 1024 / 1024, 0, 'f', 2),rememberChoice);
+            config->setOption("LogView/RememberChoiceLargeFile",static_cast<int>(rememberChoice));
+            if(!result)
+                return false;
+        }
 
 		QByteArray fullLog = f.readAll();
 		f.close();

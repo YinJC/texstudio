@@ -3,18 +3,48 @@ matrix:
   include:
   - env: QT=qt5osx
     os: osx
-    osx_image: xcode9.3
-  - env: QT=qt4
-    os: linux
-  - env: QT=qt5
-    os: linux
-  - env: QT=qt5NoPoppler
-    os: linux
+    osx_image: xcode11.6
   - env: QT=qt5Release
     os: linux
+    dist: xenial
+    addons:
+      apt:
+        packages:
+          - qtbase5-dev 
+          - qt5-default 
+          - qt5-qmake 
+          - libqt5svg5-dev 
+          - qtscript5-dev 
+          - qttools5-dev 
+          - libpoppler-qt5-dev 
+          - zlib1g-dev 
+          - pkg-config
   - env: QT=qt5win
     os: linux
-dist: trusty
+    dist: bionic
+    addons:
+      apt:
+        sources:
+          - sourceline: deb https://pkg.mxe.cc/repos/apt xenial main
+            key_url: http://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0xC6BF758A33A3A276
+        packages:
+          - mxe-x86-64-w64-mingw32.shared-cairo # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-curl # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-freetype # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-glib # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-jpeg # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-lcms # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-libpng # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-libwebp # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-openjpeg # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-poppler
+          - mxe-x86-64-w64-mingw32.shared-qtbase # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-qtdeclarative
+          - mxe-x86-64-w64-mingw32.shared-qtscript
+          - mxe-x86-64-w64-mingw32.shared-qttools
+          - mxe-x86-64-w64-mingw32.shared-tiff # poppler dependency
+          - mxe-x86-64-w64-mingw32.shared-zlib # poppler dependency
+          - mxe-x86-64-w64-mingw32.static-nsis
 sudo: required
 branches:
   only:

@@ -28,6 +28,22 @@ struct ReferencePair {
 	int start;
 };
 
+struct ReferencePairEx {
+    QDocumentLineHandle *dlh;
+    QVector<int> starts,lengths,formats;
+    QList<int> formatList;
+};
+
+
+struct UserCommandPair {
+	// name of command ("\command") or environment ("environment"),
+	// null string for other user definitions (e.g. newcolumntype, definecolor)
+	QString name;
+	// information for code completion
+	CodeSnippet snippet;
+	UserCommandPair(const QString &name, const CodeSnippet &snippet);
+};
+
 
 /*! \brief extended QDocument
  *
@@ -41,7 +57,7 @@ class LatexDocument: public QDocument
 	Q_OBJECT
 
 public:
-	LatexDocument(QObject *parent = 0);
+    LatexDocument(QObject *parent = nullptr);
 	~LatexDocument();
 
 	enum CookieType {
@@ -56,9 +72,9 @@ public:
 	QFileInfo getFileInfo() const;
 	//QSet<QString> texFiles; //absolute file names, also contains fileName
 
-	Q_PROPERTY(QString fileName READ getFileName);
-	Q_PROPERTY(QFileInfo fileInfo READ getFileInfo);
-	Q_PROPERTY(LatexEditorView *editorView READ getEditorView);
+    Q_PROPERTY(QString fileName READ getFileName)
+    Q_PROPERTY(QFileInfo fileInfo READ getFileInfo)
+    Q_PROPERTY(LatexEditorView *editorView READ getEditorView)
 
 	bool isHidden(); ///< true if editor is not displayed
 
@@ -71,8 +87,10 @@ public:
 	QList<Macro> localMacros;
 
 	friend class SyntaxCheckTest;
+    friend class LatexEditorViewTest;
 	friend class LatexStructureMerger;
 	friend class LatexStructureMergerMerge;
+	friend class ScriptEngineTest;
 
 private:
 	static QStringList someItems(const QMultiHash<QDocumentLineHandle *, ReferencePair> &list);
@@ -83,15 +101,11 @@ public:
 	Q_INVOKABLE QStringList labelItems() const; ///< all labels in this document
 	Q_INVOKABLE QStringList refItems() const; ///< all references in this document
 	Q_INVOKABLE QStringList bibItems() const; ///< all bibitem defined in this document
-    Q_INVOKABLE QList<CodeSnippet> userCommandList() const ///< all user commands defined in this document
-	{
-		QList<CodeSnippet> csl = mUserCommandList.values();
-		qSort(csl);
-		return csl;
-	}
+	Q_INVOKABLE QList<CodeSnippet> userCommandList() const; ///< all user commands defined in this document, sorted
 	Q_INVOKABLE CodeSnippetList additionalCommandsList();
 	void updateRefsLabels(const QString &ref);
 	void recheckRefsLabels();
+    static void updateRefHighlight(ReferencePairEx p);
 	Q_INVOKABLE int countLabels(const QString &name);
 	Q_INVOKABLE int countRefs(const QString &name);
 	Q_INVOKABLE bool bibIdValid(const QString &name);
@@ -100,9 +114,11 @@ public:
 	Q_INVOKABLE QMultiHash<QDocumentLineHandle *, int> getLabels(const QString &name); ///< get line/column from label name
 	Q_INVOKABLE QMultiHash<QDocumentLineHandle *, int> getRefs(const QString &name); ///< get line/column from reference name
 	Q_INVOKABLE QMultiHash<QDocumentLineHandle *, int> getBibItems(const QString &name);
-	Q_INVOKABLE void replaceItems(QMultiHash<QDocumentLineHandle *, ReferencePair> items, const QString &newName, QDocumentCursor *cursor = 0);
-	Q_INVOKABLE void replaceLabel(const QString &name, const QString &newName, QDocumentCursor *cursor = 0);
-	Q_INVOKABLE void replaceRefs(const QString &name, const QString &newName, QDocumentCursor *cursor = 0);
+	Q_INVOKABLE QDocumentLineHandle *findCommandDefinition(const QString &name); ///< get line of definition from command name (may return nullptr)
+	Q_INVOKABLE QDocumentLineHandle *findUsePackage(const QString &name); ///< get line of \usepackage from package name (may return nullptr)
+	Q_INVOKABLE void replaceItems(QMultiHash<QDocumentLineHandle *, ReferencePair> items, const QString &newName, QDocumentCursor *cursor = nullptr);
+    Q_INVOKABLE void replaceLabel(const QString &name, const QString &newName, QDocumentCursor *cursor = nullptr);
+    Q_INVOKABLE void replaceRefs(const QString &name, const QString &newName, QDocumentCursor *cursor = nullptr);
 	Q_INVOKABLE void replaceLabelsAndRefs(const QString &name, const QString &newName);
 
 	void patchLinesContaining(const QStringList cmds);
@@ -112,7 +128,7 @@ public:
 	QDocumentSelection sectionSelection(StructureEntry *section);
 	void clearAppendix()
 	{
-		mAppendixLine = 0;
+        mAppendixLine = nullptr;
 	}
 	StructureEntry *findSectionForLine(int currentLine);
 
@@ -132,7 +148,7 @@ public:
 	{
 		return masterDocument;
 	}
-	const LatexDocument *getRootDocument(QSet<const LatexDocument *> *visitedDocs = 0) const;
+    const LatexDocument *getRootDocument(QSet<const LatexDocument *> *visitedDocs = nullptr) const;
 	Q_INVOKABLE LatexDocument *getRootDocument();
 	Q_INVOKABLE LatexDocument *getTopMasterDocument()
 	{
@@ -141,13 +157,14 @@ public:
 
 	Q_INVOKABLE QStringList includedFiles();
 	Q_INVOKABLE QStringList includedFilesAndParent();
-	Q_INVOKABLE QList<LatexDocument *> getListOfDocs(QSet<LatexDocument *> *visitedDocs = 0);
+    Q_INVOKABLE QList<LatexDocument *> getListOfDocs(QSet<LatexDocument *> *visitedDocs = nullptr);
 
 	LatexParser ltxCommands, lp;
 
 	Q_INVOKABLE bool containsPackage(const QString &name);
 	Q_INVOKABLE QStringList containedPackages();
-	bool updateCompletionFiles(bool forceUpdate, bool forceLabelUpdate = false, bool delayUpdate = false);
+	Q_INVOKABLE QSet<QString> usedPackages();
+    bool updateCompletionFiles(const bool forceUpdate,const bool forceLabelUpdate = false,const bool delayUpdate = false, const bool dontPatch = false );
 	const QSet<QString> &getCWLFiles() const;
 
 	Q_INVOKABLE QString spellingDictName() const
@@ -174,10 +191,10 @@ public:
 
 	void emitUpdateCompleter();
 
-	static int syntaxErrorFormat;
+    static int syntaxErrorFormat,spellErrorFormat;
 
 	bool languageIsLatexLike() const;
-	void reCheckSyntax(int linenr = 0, int count = -1);
+	void reCheckSyntax(int lineStart = 0, int lineNum = -1);
 	QString getErrorAt(QDocumentLineHandle *dlh, int pos, StackEnvironment previous, TokenStack stack);
 
 	void getEnv(int lineNumber, StackEnvironment &env); // get Environment for syntax checking, number of cols is now part of env
@@ -186,6 +203,7 @@ public:
 	void enableSyntaxCheck(bool enable)
 	{
 		syntaxChecking = enable;
+        SynChecker.enableSyntaxCheck(enable);
 	}
 
 private:
@@ -208,7 +226,7 @@ private:
 	QMultiHash<QDocumentLineHandle *, ReferencePair> mBibItem;
 	QMultiHash<QDocumentLineHandle *, ReferencePair> mRefItem;
 	QMultiHash<QDocumentLineHandle *, FileNamePair> mMentionedBibTeXFiles;
-	QMultiHash<QDocumentLineHandle *, CodeSnippet> mUserCommandList;
+	QMultiHash<QDocumentLineHandle *, UserCommandPair> mUserCommandList;
 	QMultiHash<QDocumentLineHandle *, QString> mUsepackageList;
 	QMultiHash<QDocumentLineHandle *, QString> mIncludedFilesList;
 
@@ -226,15 +244,16 @@ private:
 	void updateContext(QDocumentLineHandle *oldLine, QDocumentLineHandle *newLine, StructureEntry::Context context);
 	void setContextForLines(StructureEntry *se, int startLine, int endLine, StructureEntry::Context context, bool state);
 
-	void findStructureEntryBefore(QMutableListIterator<StructureEntry *> &iter, QMultiHash<QDocumentLineHandle *, StructureEntry *> &MapOfElemnts, int linenr, int count);
+	int findStructureParentPos(const QList<StructureEntry *> &children, QList<StructureEntry *> &removedElements, int linenr, int count);
 
+	bool IsInTree (StructureEntry *se);
 	void updateElementWithSignal(StructureEntry *se){ emit updateElement(se); }
 	void removeElementWithSignal(StructureEntry *se);
 	void addElementWithSignal(StructureEntry *parent, StructureEntry *se);
 	void insertElementWithSignal(StructureEntry *parent, int pos, StructureEntry *se);
 	void moveElementWithSignal(StructureEntry *se, StructureEntry *parent, int pos);
 
-	void addMagicComment(const QString &text, int lineNr, QMultiHash<QDocumentLineHandle *, StructureEntry *> &MapOfMagicComments, QMutableListIterator<StructureEntry *> &iter_magicComment);
+	void addMagicComment(const QString &text, int lineNr, int posMagicComment);
 	void parseMagicComment(const QString &name, const QString &val, StructureEntry *se);
 
 	void gatherCompletionFiles(QStringList &files, QStringList &loadedFiles, LatexPackage &pck, bool gatherForCompleter = false);
@@ -253,16 +272,18 @@ public:
 public slots:
 	void updateStructure();
 	bool patchStructure(int linenr, int count, bool recheck = false);
-	void patchStructureRemoval(QDocumentLineHandle *dlh);
+    void patchStructureRemoval(QDocumentLineHandle *dlh,int hint=-1);
 	void initClearStructure();
 	void updateLtxCommands(bool updateAll = false);
 	void setLtxCommands(const LatexParser &cmds);
+    void setSpeller(SpellerUtility *speller);
+    void setReplacementList(QMap<QString,QString> replacementList);
 	void updateSettings();
-	void checkNextLine(QDocumentLineHandle *dlh, bool clearOverlay, int ticket);
+    void checkNextLine(QDocumentLineHandle *dlh, bool clearOverlay, int ticket, int hint=-1);
 
 signals:
 	void hasBeenIncluded(const LatexDocument &newMasterDocument);
-	void structureUpdated(LatexDocument *document, StructureEntry *highlight = 0);
+    void structureUpdated(LatexDocument *document, StructureEntry *highlight = nullptr);
     void setHighlightedEntry(StructureEntry *highlight);
 	void structureLost(LatexDocument *document);
 	void removeElement(StructureEntry *se, int row);
@@ -311,11 +332,11 @@ public:
 	Q_INVOKABLE LatexDocument *getMasterDocument() const; ///< get explicit master if set
 	Q_INVOKABLE QList<LatexDocument *> getDocuments() const; ///< get all documents (visible&hidden)
 
-	Q_PROPERTY(LatexDocument *currentDocument READ getCurrentDocument);
-	Q_PROPERTY(LatexDocument *masterDocument READ getMasterDocument);
-	Q_PROPERTY(QList<LatexDocument *> documents READ getDocuments); //<- semicolon necessary due to qt bug 22992
+    Q_PROPERTY(LatexDocument *currentDocument READ getCurrentDocument)
+    Q_PROPERTY(LatexDocument *masterDocument READ getMasterDocument)
+    Q_PROPERTY(QList<LatexDocument *> documents READ getDocuments); //<- semicolon necessary due to qt bug 22992
 
-	Q_INVOKABLE LatexDocument *getRootDocumentForDoc(LatexDocument *doc = 0) const ; ///< no argument means current doc ...
+    Q_INVOKABLE LatexDocument *getRootDocumentForDoc(LatexDocument *doc = nullptr) const ; ///< no argument means current doc ...
 
 	Q_INVOKABLE QString getCurrentFileName() const; ///< returns the absolute file name of the current file or "" if none is opened
 	Q_INVOKABLE QString getCompileFileName() const; ///< returns the absolute file name of the file to be compiled (master or current)

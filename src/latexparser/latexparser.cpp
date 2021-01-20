@@ -14,7 +14,7 @@ const QString & getCommonEOW()
 
 const int LatexParser::MAX_STRUCTURE_LEVEL = 10;
 
-LatexParser *LatexParserInstance = 0;
+LatexParser *LatexParserInstance = nullptr;
 
 LatexParser::LatexParser()
 {
@@ -27,7 +27,7 @@ LatexParser::LatexParser()
 LatexParser::~LatexParser()
 {
 	if (LatexParserInstance == this) {
-		LatexParserInstance = 0;
+        LatexParserInstance = nullptr;
 	}
 }
 
@@ -44,28 +44,29 @@ LatexParser * LatexParser::getInstancePtr()
 
 void LatexParser::init()
 {
-	environmentCommands = QSet<QString>::fromList(QStringList() << "\\begin" << "\\end" << "\\newenvironment" << "\\renewenvironment");
-	mathStartCommands  << "$" << "$$" << "\\(" << "\\[" ;
-	mathStopCommands  << "$" << "$$" << "\\)" << "\\]" ;
+    environmentCommands = QSet<QString>{"\\begin" , "\\end" , "\\newenvironment" , "\\renewenvironment"};
+    mathStartCommands = QStringList{ "$" , "$$" , "\\(" , "\\[" };
+    mathStopCommands = QStringList{ "$" , "$$" , "\\)" , "\\]" } ;
 
 	possibleCommands.clear();
-	possibleCommands["tabular"] = QSet<QString>::fromList(QStringList() << "&" );
-	possibleCommands["array"] = QSet<QString>::fromList(QStringList() << "&" );
-	possibleCommands["tabbing"] = QSet<QString>::fromList(QStringList() << "\\<" << "\\>" << "\\=" << "\\+");
-	possibleCommands["normal"] = QSet<QString>::fromList(QStringList() << "\\\\" << "\\_" << "\\-" << "$" << "$$" << "\\$" << "\\#" << "\\{" << "\\}" << "\\S" << "\\'" << "\\`" << "\\^" << "\\=" << "\\." << "\\u" << "\\v" << "\\H" << "\\t" << "\\c" << "\\d" << "\\b" << "\\o" << "\\O" << "\\P" << "\\l" << "\\L" << "\\&" << "\\~" << "\\" << "\\," << "\\%" << "\\\"");
-	possibleCommands["math"] = QSet<QString>::fromList(QStringList() << "_" << "^" << "\\$" << "\\#" << "\\{" << "\\}" << "\\S" << "\\," << "\\!" << "\\;" << "\\:" << "\\\\" << "\\ " << "\\|");
-	possibleCommands["%definition"] << "\\newcommand" << "\\renewcommand" << "\\newcommand*" << "\renewcommand*" << "\\providecommand" << "\\newlength" << "\\let";
-	possibleCommands["%usepackage"] << "\\usepackage" << "\\documentclass";
-	possibleCommands["%graphics"] << "\\includegraphics";
-	possibleCommands["%bibitem"] << "\\bibitem";
-	possibleCommands["%cite"]  << "\\cite" <<  "\\nptextcite"  ;
-	possibleCommands["%label"] << "\\label";
-	possibleCommands["%bibliography"] << "\\bibliography";
-	possibleCommands["%file"] << "\\include" << "\\input" << "\\import" << "\\includeonly" << "\\includegraphics" << "\\bibliographystyle" << "\\bibliography";
+    possibleCommands["tabular"] = QSet<QString>{"&" };
+    possibleCommands["array"] = QSet<QString>{ "&" };
+    possibleCommands["tabbing"] = QSet<QString>{"\\<" , "\\>" , "\\=" , "\\+"};
+    possibleCommands["normal"] = QSet<QString>{ "\\\\" , "\\_" , "\\-" , "$" , "$$" , "\\$" , "\\#" , "\\{" , "\\}" , "\\S" , "\\'" , "\\`" , "\\^" , "\\=" , "\\." , "\\u" , "\\v" , "\\H" , "\\t" , "\\c" , "\\d" , "\\b" , "\\o" , "\\O" , "\\P" , "\\l" , "\\L" , "\\&" , "\\~" , "\\" , "\\," , "\\%" , "\\\"", "\\," , "\\!" , "\\;" , "\\:"};
+    possibleCommands["math"] = QSet<QString>{ "_" , "^" , "\\$" , "\\#" , "\\{" , "\\}" , "\\S" , "\\," , "\\!" , "\\;" , "\\:" , "\\\\" , "\\ " , "\\|"};
+    possibleCommands["%definition"] = QSet<QString>{ "\\newcommand" , "\\renewcommand" , "\\newcommand*" , "\\renewcommand*" , "\\providecommand" , "\\newlength" , "\\let"};
+    possibleCommands["%usepackage"] = QSet<QString>{ "\\usepackage" , "\\documentclass" };
+    possibleCommands["%graphics"] = QSet<QString>{ "\\includegraphics" };
+    possibleCommands["%bibitem"] = QSet<QString>{ "\\bibitem" };
+    possibleCommands["%cite"]  = QSet<QString>{ "\\cite" ,  "\\nptextcite"  };
+    possibleCommands["%label"] = QSet<QString>{ "\\label" };
+    possibleCommands["%bibliography"] = QSet<QString>{ "\\bibliography" };
+    possibleCommands["%file"] = QSet<QString>{ "\\include" , "\\input" , "\\import" , "\\includeonly" , "\\includegraphics" , "\\bibliographystyle" , "\\bibliography"};
 	possibleCommands["%ref"] = QSet<QString>();  // will all be populated via cwl
-	possibleCommands["%include"] << "\\include" << "\\input";
-	possibleCommands["%import"] << "\\import" << "\\inputfrom" << "\\subimport" << "\\subinputfrom"
-								<< "\\import*" << "\\inputfrom*" << "\\subimport*" << "\\subinputfrom*";
+    possibleCommands["%include"] = QSet<QString>{ "\\include" , "\\input"};
+    possibleCommands["%import"] = QSet<QString>{ "\\import" , "\\inputfrom" , "\\subimport" , "\\subinputfrom"
+                                , "\\import*" , "\\inputfrom*" , "\\subimport*" , "\\subinputfrom*"
+                                , "\\includefrom" , "\\includefrom*" , "\\subincludefrom" , "\\subincludefrom*"};
 	commandDefs.clear();
 }
 
@@ -76,8 +77,9 @@ int LatexParser::commentStart(const QString &text)
 	QString test = text;
 	test.replace("\\\\", "  ");
 	int cs = test.indexOf(QRegExp("[^\\\\]%")); // find start of comment (if any)
-	if (cs > -1) return cs + 1;
-	else return -1;
+    if (cs > -1) {
+        return cs + 1;
+    } else return -1;
 }
 
 /// remove comment from text, take care of multiple backslashes before comment character ...
@@ -401,7 +403,7 @@ LatexParser::ContextType LatexParser::findContext(const QString &line, int colum
 			else
 				return KeyvalValue;
 		}
-        [[gnu::fallthrough]];
+        [[clang::fallthrough]];
 	}
 	default:
 		return Unknown;
@@ -449,7 +451,7 @@ void LatexParser::clear()
 	init();
 }
 
-void LatexParser::importCwlAliases(QString filename)
+void LatexParser::importCwlAliases(const QString filename)
 {
 	QFile tagsfile(filename);
 	if (tagsfile.open(QFile::ReadOnly)) {
@@ -464,7 +466,7 @@ void LatexParser::importCwlAliases(QString filename)
 				continue;
 			}
 			if (!alias.isEmpty())
-				packageAliases.insertMulti(alias, line);
+                packageAliases.insert(alias, line);
 		}
 	}
 }

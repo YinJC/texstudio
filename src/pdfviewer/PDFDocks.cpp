@@ -36,6 +36,7 @@
 
 #include "PDFDocks.h"
 #include "PDFDocument.h"
+#include "universalinputdialog.h"
 
 /*!
  * \brief constructor
@@ -70,6 +71,13 @@ void PDFDock::pageChanged(int page)
 	Q_UNUSED(page)
 }
 
+void PDFDock::addAction(const QString& caption, const char* slot)
+{
+	QAction *act = new QAction(caption, this);
+	connect(act, SIGNAL(triggered()), slot);
+	addAction(act);
+}
+
 void PDFDock::myVisibilityChanged(bool visible)
 {
 	setWindowTitle(getTitle());
@@ -88,7 +96,7 @@ void PDFDock::changeLanguage()
 
 static void fillToc(const QDomNode &parent, QTreeWidget *tree, QTreeWidgetItem *parentItem)
 {
-	QTreeWidgetItem *newitem = 0;
+    QTreeWidgetItem *newitem = nullptr;
 	for (QDomNode node = parent.firstChild(); !node.isNull(); node = node.nextSibling()) {
 		QDomElement e = node.toElement();
 
@@ -152,7 +160,7 @@ void PDFOutlineDock::fillInfo()
 	if (!document || document->popplerDoc().isNull()) return;
 	const QDomDocument *toc = document->popplerDoc()->toc();
 	if (toc) {
-		fillToc(*toc, tree, 0);
+        fillToc(*toc, tree, nullptr);
 		connect(tree, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this, SLOT(followTocSelection()));
 		delete toc;
 	} else {
@@ -227,7 +235,7 @@ void PDFInfoDock::fillInfo()
 		const int id = keys.indexOf(date);
 		if (id != -1) {
 			list->addItem(date + ":");
-			list->addItem(doc->date(date).toString(Qt::SystemLocaleDate));
+			list->addItem(doc->date(date).toLocalTime().toString(Qt::SystemLocaleDate));
 			++i;
 			keys.removeAt(id);
 		}
@@ -269,7 +277,7 @@ QSize PDFDockListWidget::sizeHint() const
 PDFOverviewModel::PDFOverviewModel(QObject *parent)
 	: QAbstractListModel(parent)
 {
-	document = 0;
+    document = nullptr;
 	cache.clear();
 }
 
@@ -308,7 +316,7 @@ void PDFOverviewModel::setDocument(PDFDocument *doc)
 		endResetModel();
 		return;
 	}
-	if (!doc->widget() || document->popplerDoc().isNull()) document = 0;
+    if (!doc->widget() || document->popplerDoc().isNull()) document = nullptr;
 	cache.clear();
 	endResetModel();
 }
@@ -448,9 +456,7 @@ PDFBaseSearchDock::PDFBaseSearchDock(PDFDocument *doc): QDockWidget(doc), docume
 	gridLayout->addWidget(frame_2, 0, 0, 1, 1);
 
 	leFind = new QLineEdit(this);
-#if QT_VERSION >= 0x050200
 	leFind->setClearButtonEnabled(true);
-#endif
 	leFind->setObjectName(("leFind"));
 	QSizePolicy sizePolicy4(QSizePolicy::Preferred, QSizePolicy::Fixed);
 	sizePolicy4.setHorizontalStretch(2);
@@ -495,8 +501,8 @@ PDFBaseSearchDock::PDFBaseSearchDock(PDFDocument *doc): QDockWidget(doc), docume
 
 	// set texts
 	leFind->setToolTip(tr("Text or pattern to search for"));
-	bNext->setToolTip(tr("Find next occurence"));
-	bPrevious->setToolTip(tr("Find previous occurence"));
+    bNext->setToolTip(tr("Find next occurrence"));
+    bPrevious->setToolTip(tr("Find previous occurrence"));
 
 	label->setText(tr(" Find :"));
 	label->setMinimumWidth(label->sizeHint().width());
@@ -506,7 +512,7 @@ PDFBaseSearchDock::PDFBaseSearchDock(PDFDocument *doc): QDockWidget(doc), docume
 	minimum_width = frame_2->sizeHint().width() + leFind->sizeHint().width() + 2 * bNext->sizeHint().width() + 5 * hboxLayout->spacing();
 	//;
 
-	cbCase->setChecked(false);
+	CONFIG_DECLARE_OPTION_WITH_OBJECT(ConfigManagerInterface::getInstance(), bool, caseConfig, false, "Preview/Search Case Sensitive", cbCase);
 
 	leFind->installEventFilter(this);
 
@@ -601,7 +607,8 @@ PDFSearchDock::PDFSearchDock(PDFDocument *doc): PDFBaseSearchDock(doc)
 	cbWords = new QCheckBox(this);
 	cbWords->setObjectName("cbWords");
 	cbWords->setText(tr("Words"));
-    cbWords->setToolTip(tr("Only searches for whole words."));
+	cbWords->setToolTip(tr("Only searches for whole words."));
+	CONFIG_DECLARE_OPTION_WITH_OBJECT(ConfigManagerInterface::getInstance(), bool, wordConfig, false, "Preview/Whole Words", cbWords);
 
 	gridLayout1->addWidget(cbWords, 0, 2, 1, 1);
 
@@ -609,7 +616,7 @@ PDFSearchDock::PDFSearchDock(PDFDocument *doc): PDFBaseSearchDock(doc)
 	cbSync->setObjectName("cbSync");
 	cbSync->setText(tr("Sync"));
 	cbSync->setToolTip(tr("Synchronize editor when jumping to search results."));
-	cbSync->setChecked(true);
+	CONFIG_DECLARE_OPTION_WITH_OBJECT(ConfigManagerInterface::getInstance(), bool, syncConfig, true, "Preview/Search Sync", cbSync);
 
 	gridLayout1->addWidget(cbSync, 0, 3, 1, 1);
 
@@ -630,7 +637,7 @@ bool PDFSearchDock::hasFlagSync() const
 //////////////// SCROLL AREA ////////////////
 
 PDFScrollArea::PDFScrollArea(QWidget *parent)
-	: QAbstractScrollArea(parent), continuous(true), pdf(0), updateWidgetPositionStackWatch(0), onResizeStackWatch(0)
+    : QAbstractScrollArea(parent), continuous(true), pdf(nullptr), updateWidgetPositionStackWatch(0), onResizeStackWatch(0)
 {
 	viewport()->setBackgroundRole(QPalette::NoRole);
 	viewport()->setAttribute(Qt::WA_AcceptTouchEvents, true);
@@ -643,8 +650,8 @@ void PDFScrollArea::setPDFWidget(PDFWidget *widget)
 {
 	//from qt
 	if (pdf == widget) return;
-	if (pdf) delete pdf;
-	pdf = 0;
+    delete pdf;
+    pdf = nullptr;
 	horizontalScrollBar()->setValue(0);
 	verticalScrollBar()->setValue(0);
 	if (widget->parentWidget() != viewport())
@@ -696,7 +703,7 @@ void PDFScrollArea::setContinuous(bool cont)
 	if (!cont) pdf->setGridSize(pdf->gridCols(), 1);
 	else {
 		int page = pdf->getPageIndex();
-		resizeEvent(0);
+        resizeEvent(nullptr);
 		goToPage(page, false);
 	}
 }
@@ -749,7 +756,7 @@ bool PDFScrollArea::eventFilter(QObject *o, QEvent *e)
 
 void PDFScrollArea::wheelEvent(QWheelEvent *e)
 {
-	if (pdf && !getContinuous()) {
+    if (pdf){// && !getContinuous()) {
 		pdf->wheelEvent(e);
 		return;
 	}
@@ -832,11 +839,6 @@ void PDFScrollArea::updateScrollBars()
 
 
 //////////////// Overview ////////////////
-struct renderInfo {
-	Poppler::Page *page;
-	PDFWidget *widget;
-};
-
 
 PDFOverviewDock::PDFOverviewDock(PDFDocument *doc)
 	: PDFDock(doc), toGenerate(0)
@@ -876,7 +878,7 @@ void PDFOverviewDock::fillInfo()
 
 void PDFOverviewDock::documentClosed()
 {
-	qobject_cast<PDFOverviewModel *>(list->model())->setDocument(0);
+    qobject_cast<PDFOverviewModel *>(list->model())->setDocument(nullptr);
 	PDFDock::documentClosed();
 }
 
@@ -899,7 +901,7 @@ void PDFOverviewDock::pageChanged(int page)
 }
 
 
-PDFClockDock::PDFClockDock(PDFDocument *parent): PDFDock(parent)
+PDFClockDock::PDFClockDock(PDFDocument *parent): PDFDock(parent), pageCount(0)
 {
 	setObjectName("clock");
 	setWindowTitle(getTitle());
@@ -910,12 +912,9 @@ PDFClockDock::PDFClockDock(PDFDocument *parent): PDFDock(parent)
 	timer->start(2000);
 
 	setContextMenuPolicy(Qt::ActionsContextMenu);
-	QAction *act = new QAction(tr("Set Interval..."), this);
-	connect(act, SIGNAL(triggered()), SLOT(setInterval()));
-	addAction(act);
-	act = new QAction(tr("Restart"), this);
-	connect(act, SIGNAL(triggered()), SLOT(restart()));
-	addAction(act);
+	addAction(tr("Set Interval..."),  SLOT(setInterval()));
+	addAction(tr("Set Page Count..."),  SLOT(setPageCount()));
+	addAction(tr("Restart"), SLOT(restart()));
 }
 
 PDFClockDock::~PDFClockDock()
@@ -941,7 +940,7 @@ void PDFClockDock::onTimer()
 
 void PDFClockDock::restart()
 {
-	int delta = start.secsTo(end);
+    qint64 delta = start.secsTo(end);
 	start = QDateTime::currentDateTime();
 	end = start.addSecs(delta);
 	update();
@@ -949,10 +948,18 @@ void PDFClockDock::restart()
 
 void PDFClockDock::setInterval()
 {
-	bool ok;
-	int interval = QInputDialog::getInt(0, "TeXstudio", tr("New clock interval (in minutes)"), 60, 1, 9999, 5, &ok);
-	if (!ok) return;
-	setInterval(interval);
+	int i = (start.secsTo(end) + 30) / 60;
+	QString s = start.time().toString();
+	UniversalInputDialog d;
+	d.addVariable(&s, tr("Start time"));
+	QSpinBox* sb = d.addVariable(&i, tr("New clock interval (in minutes)"));
+	sb->setMinimum(1);
+	sb->setMaximum(9999);
+
+	if (!d.exec()) return;
+	start = QDateTime::currentDateTime();
+	start.setTime( QTime::fromString(s) );
+	end = start.addSecs(i * 60);
 }
 
 void PDFClockDock::setInterval(int interval)
@@ -960,6 +967,15 @@ void PDFClockDock::setInterval(int interval)
 	start = QDateTime::currentDateTime();
 	end = start.addSecs(interval * 60);
 	update();
+}
+
+void PDFClockDock::setPageCount(){
+	UniversalInputDialog d;
+	QSpinBox* sb = d.addVariable(&pageCount, tr("Page count (negative subtracts)"));
+	sb->setMinimum(-99999);
+	sb->setMaximum(99999);
+
+	if (!d.exec()) return;
 }
 
 void PDFClockDock::paintEvent(QPaintEvent *event)
@@ -982,29 +998,34 @@ void PDFClockDock::paintEvent(QPaintEvent *event)
 	p.fillRect(r, backgroundBrush);
 
 	// text
+	qint64 pendingSeconds = start.secsTo(QDateTime::currentDateTime());
 	qint64 remainingSeconds = QDateTime::currentDateTime().secsTo(end);
 	QString text;
-	if (remainingSeconds <= 60)
-		text = tr("%1 sec").arg(qMax(qint64(0), remainingSeconds));
+	if (pendingSeconds < 0)
+		text = tr("wait");
+	else if (remainingSeconds <= 90)
+		text = tr("%1 sec").arg(qMax<qint64>(0, remainingSeconds));
 	else
-		text = tr("%1 min").arg(remainingSeconds / 60);
+		text = tr("%1 min").arg((remainingSeconds + 30) / 60);
 	QFont f = p.font();
 	f.setPixelSize(r.height());
 	p.setFont(f);
 	p.setPen(textColor);
-	int labelWidth = p.fontMetrics().width("9999 min");
+	int labelWidth = UtilsUi::getFmWidth(p.fontMetrics(), "9999 min");
 	QRect textRect = rect();
 	textRect.setWidth(labelWidth);
 	p.drawText(textRect, Qt::AlignHCenter | Qt::AlignVCenter, text);
 
 	// progress bar
 	r.adjust(labelWidth, 0, 0, 0);
-	p.fillRect(r.x(), 0, r.width() * start.secsTo(QDateTime::currentDateTime()) / qMax(qint64(start.secsTo(end)), qint64(1)), r.height() * 3 / 4, timeBarColor);
-	p.fillRect(r.x(), r.height() * 3 / 4, r.width() * document->widget()->getPageIndex() / qMax(1, document->widget()->realNumPages() - 1),  r.height() / 4, pagesBarColor);
+	p.fillRect(r.x(), 0, qMax<int>(0, r.width() * pendingSeconds / qMax(qint64(start.secsTo(end)), qint64(1))), r.height() * 3 / 4, timeBarColor);
+
+	int effectivePageCount = pageCount > 0 ? pageCount : document->widget()->realNumPages() + pageCount;
+	p.fillRect(r.x(), r.height() * 3 / 4, r.width() * document->widget()->getPageIndex() / qMax(1, effectivePageCount - 1),  r.height() / 4, pagesBarColor);
 }
 
 
-MessageFrame::MessageFrame(QWidget *parent) : QFrame(parent), label(0)
+MessageFrame::MessageFrame(QWidget *parent) : QFrame(parent), label(nullptr)
 {
 	QHBoxLayout *layout = new QHBoxLayout();
 	setLayout(layout);
@@ -1013,7 +1034,8 @@ MessageFrame::MessageFrame(QWidget *parent) : QFrame(parent), label(0)
 	layout->addWidget(label);
 	layout->setContentsMargins(2, 2, 2, 2);
 
-	setStyleSheet("background: #FFFBBF;");
+	setStyleSheet("MessageFrame {background: #FFFBBF}\n"
+				  "QLabel {color: black}");  // only style the frame and the labels. Buttons remain unstyled.
 	setVisible(false);
 }
 

@@ -1,22 +1,21 @@
-From ebb63c29d32d752d410ad1952de88caf707eb60c Mon Sep 17 00:00:00 2001
+From 18f3a255561c2fe4cf93a4c0114550b8712e4494 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Stefan=20L=C3=B6ffler?= <st.loeffler@gmail.com>
 Date: Mon, 6 Nov 2017 06:59:37 +0100
 Subject: [PATCH] Use a custom font directory on Windows
 
 Uses the share/fonts directory alongside the application/poppler library
 ---
- poppler/GlobalParams.cc    | 36 +++++++++++++++++++++++++++++++++---
- poppler/GlobalParams.h     |  2 +-
- poppler/GlobalParamsWin.cc |  4 ++--
- 3 files changed, 36 insertions(+), 6 deletions(-)
+ poppler/GlobalParams.cc    | 32 +++++++++++++++++++++++++++++++-
+ poppler/GlobalParamsWin.cc |  2 +-
+ 2 files changed, 32 insertions(+), 2 deletions(-)
 
 diff --git a/poppler/GlobalParams.cc b/poppler/GlobalParams.cc
-index d17673a4..fb64d8a7 100644
+index 4e46c183..dbd16c14 100644
 --- a/poppler/GlobalParams.cc
 +++ b/poppler/GlobalParams.cc
-@@ -188,6 +188,36 @@ get_poppler_datadir (void)
- #undef POPPLER_DATADIR
- #define POPPLER_DATADIR get_poppler_datadir ()
+@@ -152,6 +152,36 @@ static const char *get_poppler_datadir(void)
+ #    undef POPPLER_DATADIR
+ #    define POPPLER_DATADIR get_poppler_datadir()
  
 +static const char *
 +get_poppler_fontsdir (void)
@@ -51,68 +50,28 @@ index d17673a4..fb64d8a7 100644
  #endif
  
  //------------------------------------------------------------------------
-@@ -1070,7 +1100,7 @@ static FcPattern *buildFcPattern(GfxFont *font, GooString *base14Name)
- GooString *GlobalParams::findFontFile(GooString *fontName) {
-   GooString *path;
+@@ -848,7 +878,7 @@ GooString *GlobalParams::findFontFile(const GooString *fontName)
+ {
+     GooString *path = nullptr;
  
--  setupBaseFonts(NULL);
-+  setupBaseFonts(POPPLER_FONTSDIR);
-   lockGlobalParams;
-   if ((path = (GooString *)fontFiles->lookup(fontName))) {
-     path = path->copy();
-@@ -1086,7 +1116,7 @@ GooString *GlobalParams::findFontFile(GooString *fontName) {
- */
- #ifdef WITH_FONTCONFIGURATION_FONTCONFIG
- // not needed for fontconfig
--void GlobalParams::setupBaseFonts(char *dir) {
-+void GlobalParams::setupBaseFonts(const char *dir) {
- }
- 
- GooString *GlobalParams::findBase14FontFile(GooString *base14Name, GfxFont *font) {
-@@ -1300,7 +1330,7 @@ static const char *displayFontDirs[] = {
-   NULL
- };
- 
--void GlobalParams::setupBaseFonts(char *dir) {
-+void GlobalParams::setupBaseFonts(const char *dir) {
-   GooString *fontName;
-   GooString *fileName;
-   FILE *f;
-diff --git a/poppler/GlobalParams.h b/poppler/GlobalParams.h
-index 7c61ae44..7b444eee 100644
---- a/poppler/GlobalParams.h
-+++ b/poppler/GlobalParams.h
-@@ -108,7 +108,7 @@ public:
- 
-   ~GlobalParams();
- 
--  void setupBaseFonts(char *dir);
-+  void setupBaseFonts(const char *dir);
- 
-   //----- accessors
- 
+-    setupBaseFonts(nullptr);
++    setupBaseFonts(POPPLER_FONTSDIR);
+     globalParamsLocker();
+     const auto fontFile = fontFiles.find(fontName->toStr());
+     if (fontFile != fontFiles.end()) {
 diff --git a/poppler/GlobalParamsWin.cc b/poppler/GlobalParamsWin.cc
-index a7440b9a..8f8c8364 100644
+index 2056df18..c0f760e8 100644
 --- a/poppler/GlobalParamsWin.cc
 +++ b/poppler/GlobalParamsWin.cc
-@@ -408,7 +408,7 @@ static GooString* replaceSuffix(GooString *path,
- }
+@@ -504,7 +504,7 @@ GooString *GlobalParams::findSystemFontFile(const GfxFont *font, SysFontType *ty
+     if (!fontName)
+         return nullptr;
+     std::unique_lock<std::recursive_mutex> locker(mutex);
+-    setupBaseFonts(nullptr);
++    setupBaseFonts(POPPLER_FONTSDIR);
  
- 
--void GlobalParams::setupBaseFonts(char * dir)
-+void GlobalParams::setupBaseFonts(const char * dir = NULL)
- {
-     const char *dataRoot = popplerDataDir ? popplerDataDir : POPPLER_DATADIR;
-     GooString *fileName = NULL;
-@@ -556,7 +556,7 @@ GooString *GlobalParams::findSystemFontFile(GfxFont *font,
-   GooString *fontName = font->getName();
-   if (!fontName) return NULL;
-   lockGlobalParams;
--  setupBaseFonts(NULL);
-+  setupBaseFonts(POPPLER_FONTSDIR);
- 
-   // TODO: base14Name should be changed?
-   // In the system using FontConfig, findSystemFontFile() uses
+     // TODO: base14Name should be changed?
+     // In the system using FontConfig, findSystemFontFile() uses
 -- 
-2.14.1
+2.25.1
 

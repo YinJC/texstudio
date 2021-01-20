@@ -16,6 +16,7 @@ class LatexDocuments;
 struct StructureEntry {
 	enum Type {SE_DOCUMENT_ROOT, SE_OVERVIEW, SE_SECTION, SE_BIBTEX, SE_TODO, SE_MAGICCOMMENT, SE_INCLUDE, SE_LABEL, SE_BLOCK = SE_LABEL};
 	enum Context { ///< mark if entry is located beyond appendix/end document commands
+        Unknown = 0x0000,
 		InAppendix = 0x0001,
 		BeyondEnd = 0x0010
 	};
@@ -117,7 +118,7 @@ public:
     void setHighlightedEntry(StructureEntry *entry);
 
 private slots:
-	void structureUpdated(LatexDocument *document, StructureEntry *highlight = 0);
+    void structureUpdated(LatexDocument *document, StructureEntry *highlight = nullptr);
 	void structureLost(LatexDocument *document);
 	void removeElement(StructureEntry *se, int row);
 	void removeElementFinished();

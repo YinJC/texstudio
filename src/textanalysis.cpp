@@ -67,7 +67,7 @@ QVariant TextAnalysisModel::headerData(int section, Qt::Orientation orientation,
 
 int TextAnalysisModel::columnCount(const QModelIndex &parent) const
 {
-	Q_UNUSED(parent);
+	Q_UNUSED(parent)
 
 	return 3;
 }
@@ -80,7 +80,7 @@ void TextAnalysisModel::updateAll()
 		wordCount += words[i].count;
 		characterInWords += words[i].count * words[i].word.size();
 	}
-	qSort(words);
+    std::sort(words.begin(),words.end());
 	if (words.size() > 0) relativeProzentMultipler = 100.0 / words[0].count;
 	else relativeProzentMultipler = 0;
 	//emit dataChanged?
@@ -88,7 +88,7 @@ void TextAnalysisModel::updateAll()
 
 
 TextAnalysisDialog::TextAnalysisDialog(QWidget *parent,  QString name)
-	: QDialog(parent), document(0), editor(0), alreadyCount(false), lastSentenceLength(-1), lastMinSentenceLength(-1), lastParsedMinWordLength(-1)
+    : QDialog(parent), document(nullptr), editor(nullptr), alreadyCount(false), lastSentenceLength(-1), lastMinSentenceLength(-1), lastParsedMinWordLength(-1)
 {
 	setWindowTitle(name);
 	setAttribute(Qt::WA_DeleteOnClose);
@@ -113,16 +113,16 @@ TextAnalysisDialog::~TextAnalysisDialog()
 
 void TextAnalysisDialog::setEditor(QEditor *aeditor)
 {
-	if (editor) disconnect(editor, 0, this, 0);
+    if (editor) disconnect(editor, nullptr, this, nullptr);
 	if (aeditor) {
 		editor = aeditor;
 		document = aeditor->document();
 		cursor = aeditor->cursor();
 		connect(editor, SIGNAL(destroyed()), this, SLOT(editorDestroyed()));
 	} else {
-		document = 0;
-		cursor = 0;
-		editor = 0;
+        document = nullptr;
+        cursor = nullptr;
+        editor = nullptr;
 	}
 }
 
@@ -398,7 +398,7 @@ void TextAnalysisDialog::slotCount()
 
 	displayed.updateAll();
 
-	ui.resultView->setModel(NULL);
+    ui.resultView->setModel(nullptr);
 	ui.resultView->setModel(&displayed);
 
 	ui.resultView->setShowGrid(false);
@@ -415,7 +415,7 @@ void TextAnalysisDialog::slotCount()
 
 void TextAnalysisDialog::editorDestroyed()
 {
-	setEditor(0);
+    setEditor(nullptr);
 }
 
 void TextAnalysisDialog::slotSelectionButton()

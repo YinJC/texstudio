@@ -66,22 +66,17 @@ SearchResultModel::~SearchResultModel()
 
 void SearchResultModel::addSearch(const SearchInfo &search)
 {
-#if QT_VERSION<0x050000
-#else
 	beginResetModel();
-#endif
-	m_searches.append(search);
+
+    m_searches.append(search);
 	int lineNumber = 0;
 	m_searches.last().lineNumberHints.clear();
 	for (int i = 0; i < search.lines.size(); i++) {
 		lineNumber = search.doc->indexOf(search.lines[i], lineNumber);
 		m_searches.last().lineNumberHints << lineNumber;
 	}
-#if QT_VERSION<0x050000
-	reset();
-#else
+
 	endResetModel();
-#endif
 }
 
 QList<SearchInfo> SearchResultModel::getSearches()
@@ -91,20 +86,13 @@ QList<SearchInfo> SearchResultModel::getSearches()
 
 void SearchResultModel::clear()
 {
-#if QT_VERSION<0x050000
-#else
 	beginResetModel();
-#endif
 
 	m_searches.clear();
 	mExpression.clear();
 	mAllowPartialSelection = true;
 
-#if QT_VERSION<0x050000
-	reset();
-#else
 	endResetModel();
-#endif
 }
 
 void SearchResultModel::removeSearch(const QDocument *doc)
@@ -240,7 +228,7 @@ QVariant SearchResultModel::data(const QModelIndex &index, int role) const
 Qt::ItemFlags SearchResultModel::flags(const QModelIndex &index) const
 {
 	if (!index.isValid())
-		return 0;
+        return Qt::ItemFlags();
 
 	return Qt::ItemIsEnabled | Qt::ItemIsUserCheckable | Qt::ItemIsSelectable ;
 }
@@ -338,7 +326,7 @@ QList<SearchMatch> SearchResultModel::getSearchMatches(const QDocumentLine &docl
 		match.pos = i;
 		match.length = regexp.matchedLength();
 		result << match;
-		i++;
+        i+=match.length;
 	}
 	return result;
 }
@@ -346,8 +334,8 @@ QList<SearchMatch> SearchResultModel::getSearchMatches(const QDocumentLine &docl
 QDocument *SearchResultModel::getDocument(const QModelIndex &index)
 {
 	int i = searchIndexFromIid(index.internalId());
-	if (i < 0 || i >= m_searches.size()) return 0;
-	if (!m_searches[i].doc) return 0;
+    if (i < 0 || i >= m_searches.size()) return nullptr;
+    if (!m_searches[i].doc) return nullptr;
 	return m_searches[i].doc;
 }
 

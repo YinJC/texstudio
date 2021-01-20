@@ -135,13 +135,13 @@ PDFAnnotationModel::PDFAnnotationModel(PDFAnnotations *parent)
 
 int PDFAnnotationModel::rowCount ( const QModelIndex &parent ) const
 {
-	Q_UNUSED(parent);
+	Q_UNUSED(parent)
 	return m_annotations->m_annotations.count();
 }
 
 int PDFAnnotationModel::columnCount(const QModelIndex &parent) const
 {
-	Q_UNUSED(parent);
+	Q_UNUSED(parent)
 	return columnTypes.length();
 }
 
@@ -219,7 +219,7 @@ QVariant PDFAnnotationModel::headerData(int section, Qt::Orientation orientation
 
 const PDFAnnotation *PDFAnnotationModel::itemForIndex(const QModelIndex &index) const
 {
-	if (!index.isValid()) return NULL;
+    if (!index.isValid()) return nullptr;
 	return m_annotations->annotation(index.row());
 }
 

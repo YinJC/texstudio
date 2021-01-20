@@ -14,6 +14,7 @@ class WebPublishDialogConfig;
 class InsertGraphicsConfig;
 struct PDFDocumentConfig;
 class GrammarCheckerConfig;
+class InternalTerminalConfig;
 
 #ifdef Q_OS_WIN
 const QKeySequence::SequenceFormat SHORTCUT_FORMAT = QKeySequence::PortableText;
@@ -34,7 +35,9 @@ class ConfigManager: public QObject, public ConfigManagerInterface
 	Q_OBJECT
 
 public:
-	ConfigManager(QObject *parent = 0);
+    static const int MAX_NUM_MACROS = 5000;
+
+    ConfigManager(QObject *parent = nullptr);
 	~ConfigManager();
 
 	QString iniPath();
@@ -44,6 +47,9 @@ public:
 	QSettings *newQSettings();
 	QSettings *readSettings(bool reread = false);
 	QSettings *saveSettings(const QString &saveName = "");
+    QSettings *getSettings();
+
+    void saveMacros();
 
     bool execConfigDialog(QWidget *parentToDialog);
 
@@ -70,9 +76,11 @@ public:
 	//svn
 	//bool autoCheckinAfterSave;
 	int autoCheckinAfterSaveLevel;
+    int useVCS; // 0 SVN   1 GIT
 	bool svnUndo;
 	bool svnKeywordSubstitution;
 	int svnSearchPathDepth;
+
 
 	//appearance
 	QPalette systemPalette;
@@ -80,6 +88,8 @@ public:
 	QString interfaceFontFamily;
 	int guiToolbarIconSize, guiSymbolGridIconSize;
 	int guiSecondaryToolbarIconSize;
+    int guiPDFToolbarIconSize;
+    int guiConfigShortcutColumnWidth;
 	bool useTexmakerPalette;
 	int interfaceFontSize;
 	bool mruDocumentChooser;
@@ -126,6 +136,9 @@ public:
 	//Grammar check
 	GrammarCheckerConfig *const grammarCheckerConfig;
 
+	//Terminal
+	InternalTerminalConfig *const terminalConfig;
+
 	//bool autoReplaceCommands; // moved to static codesnippet
 
 	int tabstop;
@@ -143,6 +156,7 @@ public:
 
 	// LogView
 	double logViewWarnIfFileSizeLargerMB;
+    int logViewRememberChoice;
 
 	//preview
 	enum PreviewMode {PM_TOOLTIP_AS_FALLBACK = 0, PM_PANEL, PM_TOOLTIP, PM_BOTH, PM_INLINE, PM_EMBEDDED};
@@ -176,7 +190,8 @@ public:
 	bool addRecentFile(const QString &fileName, bool asMaster);  //adds a recent file
 	void updateRecentFiles(bool alwaysRecreateMenuItems = false);
 	QMenu *updateListMenu(const QString &menuName, const QStringList &items, const QString &namePrefix, bool prefixNumber, const char *slotName, const int baseShortCut, bool alwaysRecreateMenuItems = false, int additionalEntries = 2, const QList<QVariant> data=QList<QVariant>());
-	void updateUserMacroMenu(bool alwaysRecreateMenuItems = false);
+    void updateUserMacroMenu();
+    void updateUserMacroShortcuts();
 
 	QString additionalBibPaths;
 	QString additionalImagePaths;
@@ -185,10 +200,6 @@ public:
 	QString spellDictDir;
 	QString spellLanguage;
 	QString spell_dic, thesaurus_database;
-
-	// custom highlighting
-	QStringList enviromentModes;
-	QMap<QString, QVariant> customEnvironments;
 
 	//debug
 #ifndef QT_NO_DEBUG
@@ -201,8 +212,10 @@ public:
 	bool scanInstalledLatexPackages;
 
 	// input unicode instead of latex command from symbolgrid (if available)
-	bool insertUTF;
+	bool insertSymbolsAsUnicode;
 
+    // macro repository
+    QString URLmacroRepository;
 	//menus
     QObjectList menuParents;
     QObject *menuParent; //lets assume there is only one
@@ -210,7 +223,7 @@ public:
 	QList<QMenu *> managedMenus;
 	QHash<QString, QKeySequence> managedMenuShortcuts;
 	QList<QPair<QString, QString> > managedMenuNewShortcuts;
-#if (QT_VERSION > 0x050000) && (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
+#if (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
 	//workaround that osx/qt does not support alt+key/esc as shortcuts
     QMultiMap<QKeySequence, QAction *> specialShortcuts;
 #endif
@@ -231,12 +244,14 @@ public:
 
 	static QString configDirOverride;
     static bool dontRestoreSession;
+    static int RUNAWAYLIMIT;
 private:
 	void setupDirectoryStructure();
 	void moveCwls();
 	void connectExtendedSlot(QAction *act, const QString &slot);
 	bool modifyMenuContentsFirstCall;
 	void modifyMenuContent(QStringList &ids, const QString &id);
+    void clearMenu(QMenu *menu);
 public:
 	void modifyMenuContents();
     void modifyManagedShortcuts(QString startsWith="");
@@ -263,6 +278,7 @@ signals:
 	void watchedMenuChanged(const QString &menuId);
 	void iconSizeChanged(int value);
 	void secondaryIconSizeChanged(int value);
+    void pdfIconSizeChanged(int value);
 	void symbolGridIconSizeChanged(int value);
 public:
 //private:

@@ -1,4 +1,5 @@
 #include "unicodeinsertion.h"
+#include "utilsUI.h"
 
 QString unicodePointToString(unsigned int u)
 {
@@ -29,12 +30,12 @@ void QLineEditWithMetaText::paintEvent ( QPaintEvent *ev)
 	QPainter p(this);
 	QFontMetrics fm(font());
 	p.setPen(QApplication::palette().windowText().color().lighter(50));
-	p.drawText(width() - fm.width(metaText) - 5, (height() + fm.height()) / 2 - 2, metaText);
+	p.drawText(width() - UtilsUi::getFmWidth(fm, metaText) - 5, (height() + fm.height()) / 2 - 2, metaText);
 
 }
 
 
-UnicodeInsertion::UnicodeInsertion(QWidget *parent, int defCharCode): QWidget(parent), defaultCharCode(defCharCode)
+UnicodeInsertion::UnicodeInsertion(QWidget *parent, uint defCharCode): QWidget(parent), defaultCharCode(defCharCode)
 {
 	QLayout *lay = new QVBoxLayout();
 	edit = new QLineEditWithMetaText(this);
@@ -48,9 +49,9 @@ UnicodeInsertion::UnicodeInsertion(QWidget *parent, int defCharCode): QWidget(pa
 	table->setRowCount(3);
 	table->setColumnCount(16);
 	for (int i = 0; i < table->rowCount(); i++)
-		table->setRowHeight(i, bh);;
+		table->setRowHeight(i, bh);
     for (int i = 0; i < table->columnCount(); i++)
-		table->setColumnWidth(i, bw);;
+		table->setColumnWidth(i, bw);
 	table->horizontalHeader()->hide();
 	table->verticalHeader()->hide();
 	table->resizeRowsToContents();
@@ -103,19 +104,19 @@ void UnicodeInsertion::editChanged(const QString &newText)
 		edit->setText("0x" + QString::number(unicode, 16));
 		return;
 	}
-	int base = 16;
+    int base = 16;
 	if (nt.startsWith("0x", Qt::CaseInsensitive)) nt.remove(0, 2);
 	else if (nt.startsWith("x", Qt::CaseInsensitive)) nt.remove(0, 1);
 	else base = 10;
 
-	unsigned int c = QString(nt).toUInt(0, base);
+    unsigned int c = QString(nt).toUInt(nullptr, base);
 
 	QString utf8 = c <= 0x7f ? "" : QString(", utf-8: %1").arg(unicodePointToUtf8Hex(c));
 	if (base == 16) edit->setMetaText(QString("%1 (cp: %2%3)").arg(unicodePointToString(c)).arg(c).arg(utf8));
 	else edit->setMetaText(QString("%1 (cp: 0x%2%3)").arg(unicodePointToString(c)).arg(c, 0, 16).arg(utf8));
 
 	setTableText(0, 8, unicodePointToString(c));
-	for (int i = 0; i < base; i++)
+    for (int i = 0; i < base; i++)
 		setTableText(2, i, unicodePointToString(c * base + i));
 	if (nt.length() < 2)
 		table->resizeRowsToContents();

@@ -46,6 +46,8 @@
 #include "kpathseaParser.h"
 #include "diffoperations.h"
 #include "svn.h"
+#include "git.h"
+#include "help.h"
 
 #include <QProgressDialog>
 
@@ -69,7 +71,7 @@ class Texstudio : public QMainWindow
 	Q_OBJECT
 
 public:
-	Texstudio(QWidget *parent = 0, Qt::WindowFlags flags = 0, QSplashScreen *splash = 0);
+    Texstudio(QWidget *parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags(), QSplashScreen *splash = nullptr);
 	~Texstudio();
 
 	Q_INVOKABLE QString getCurrentFileName(); ///< returns the absolute file name of the current file or "" if none is opene
@@ -78,32 +80,35 @@ public:
 	QByteArray windowstate; ///< qt window state, used for state-restoring
 	bool tobemaximized, tobefullscreen;
 
+    Q_INVOKABLE void runInternalCommand(const QString &cmd, const QString &master, const QString &options);
+
 public slots:
 	LatexEditorView *load(const QString &f , bool asProject = false, bool hidden = false, bool recheck = true, bool dontAsk = false);
     void executeCommandLine(const QStringList &args, bool realCmdLine);
 	void hideSplash(); ///< hide splash screen
 	void startupCompleted();
 	void onOtherInstanceMessage(const QString &);  ///< For messages for the single instance
-
 	void fuzzCursorHistory();
 	void fuzzBackForward();
+    void setBuildButtonsDisabled(bool c);
 
 
 protected:
 	//these are just wrappers around configManager so we don't have to type so much (todo??? move them to configmanager.h and use a singleton design???)
 	Q_INVOKABLE inline QMenu *newManagedMenu(const QString &id, const QString &text) { return configManager.newManagedMenu(id, text); }
 	Q_INVOKABLE inline QMenu *newManagedMenu(QMenu *menu, const QString &id, const QString &text) { return configManager.newManagedMenu(menu, id, text); }
-	Q_INVOKABLE QAction *newManagedAction(QWidget *menu, const QString &id, const QString &text, const char *slotName = 0, const QKeySequence &shortCut = 0, const QString &iconFile = "", const QList<QVariant> &args = QList<QVariant>());
+    Q_INVOKABLE QAction *newManagedAction(QWidget *menu, const QString &id, const QString &text, const char *slotName = nullptr, const QKeySequence &shortCut = 0, const QString &iconFile = "", const QList<QVariant> &args = QList<QVariant>());
 	Q_INVOKABLE QAction *newManagedAction(QWidget *menu, const QString &id, const QString &text, const char *slotName, const QList<QKeySequence> &shortCuts, const QString &iconFile = "", const QList<QVariant> &args = QList<QVariant>());
-	Q_INVOKABLE QAction *newManagedEditorAction(QWidget *menu, const QString &id, const QString &text, const char *slotName = 0, const QKeySequence &shortCut = 0, const QString &iconFile = "", const QList<QVariant> &args = QList<QVariant>());
+    Q_INVOKABLE QAction *newManagedEditorAction(QWidget *menu, const QString &id, const QString &text, const char *slotName = nullptr, const QKeySequence &shortCut = 0, const QString &iconFile = "", const QList<QVariant> &args = QList<QVariant>());
 	Q_INVOKABLE QAction *newManagedEditorAction(QWidget *menu, const QString &id, const QString &text, const char *slotName, const QList<QKeySequence> &shortCuts, const QString &iconFile = "", const QList<QVariant> &args = QList<QVariant>());
 	Q_INVOKABLE inline QAction *newManagedAction(QWidget *menu, const QString &id, QAction *act) { return configManager.newManagedAction(menu, id, act); }
 	Q_INVOKABLE inline QMenu *getManagedMenu(const QString &id) { return configManager.getManagedMenu(id); }
 	Q_INVOKABLE inline QAction *getManagedAction(const QString &id) { return configManager.getManagedAction(id); }
 	Q_INVOKABLE inline QList<QAction *> getManagedActions(const QStringList &ids, const QString &commonPrefix = "") { return configManager.getManagedActions(ids, commonPrefix); }
-	Q_INVOKABLE QAction *insertManagedAction(QAction *before, const QString &id, const QString &text, const char *slotName = 0, const QKeySequence &shortCut = 0, const QString &iconFile = "");
+    Q_INVOKABLE QAction *insertManagedAction(QAction *before, const QString &id, const QString &text, const char *slotName = nullptr, const QKeySequence &shortCut = 0, const QString &iconFile = "");
 
 	void addTagList(const QString &id, const QString &iconName, const QString &text, const QString &tagFile);
+    void addMacrosAsTagList();
 
 private slots:
 	void updateToolBarMenu(const QString &menuName);
@@ -117,7 +122,7 @@ private:
 	void createStatusBar();
 	bool activateEditorForFile(QString f, bool checkTemporaryNames = false, bool setFocus = true);
 	bool saveAllFilesForClosing(); ///< checks for unsaved files and asks the user if they should be saved
-	bool saveFilesForClosing(const QList<LatexEditorView *> &editorList); ///< checks for unsaved files and asks the user if they should be saved
+    bool saveFilesForClosing(const QList<LatexDocument *> &documentList); ///< checks for unsaved files and asks the user if they should be saved
 	void closeAllFiles();
 	bool canCloseNow(bool saveSettings = true); ///< asks the user and close all files, and prepares to exit txs
 	void closeEvent(QCloseEvent *e);
@@ -151,6 +156,8 @@ private:
 	LatexParser latexParser;
 public:
 	LatexDocuments documents;
+
+    Q_INVOKABLE bool completerIsVisible();
 private:
 	OutputViewWidget *outputView; ///< contains output widgets (over OutputLayout)
 
@@ -185,6 +192,8 @@ private:
 
 	SpellerManager spellerManager;
 	SVN svn;
+    GIT git;
+    Help help;
 	SafeThread grammarCheckThread;
 	GrammarCheck *grammarCheck;
 	Bookmarks *bookmarks;
@@ -199,10 +208,12 @@ private:
 	void configureNewEditorView(LatexEditorView *edit);
 	void configureNewEditorViewEnd(LatexEditorView *edit, bool asMaster = false, bool hidden = false);
 	LatexEditorView *getEditorViewFromFileName(const QString &fileName, bool checkTemporaryNames = false);
+	LatexEditorView *getEditorViewFromHandle(const QDocumentLineHandle *dlh);
 
 	QAction *fullscreenModeAction;
 
 	int runningPDFCommands, runningPDFAsyncCommands;
+	QEditor *previewEditorPending; bool previewIsAutoCompiling;
 
 	void updateUserToolMenu();
 	void linkToEditorSlot(QAction *act, const char *slot, const QList<QVariant> &args);
@@ -221,6 +232,7 @@ protected slots:
 	void fileRestoreSession(bool showProgress = true, bool warnMissing = true);
 	void fileSave(const bool saveSilently = false);
 	void fileSaveAll();
+    void fileSaveAllFromTimer();
 	void fileSaveAll(bool alsoUnnamedFiles, bool alwaysCurrentFile);
 	void fileSaveAs(const QString &fileName = "") { fileSaveAs(fileName, false); }
 private slots:
@@ -268,7 +280,7 @@ private slots:
 	void svnPatch(QEditor *ed, QString diff);
 	void showOldRevisions();
 	void changeToRevision(QString rev, QString old_rev = "");
-	void svnDialogClosed();
+    void svnDialogClosed(int);
 	void fileDiff();
 	void fileDiff3();
 	bool checkSVNConflicted(bool substituteContents = true);
@@ -279,7 +291,7 @@ private slots:
 	void fileDiffMerge();
 	void declareConflictResolved();
 protected slots:
-	void openExternalFile(QString name, const QString &defaultExt = "tex", LatexDocument *doc = 0); // signaled by latexViewer to open specific file
+    void openExternalFile(QString name, const QString &defaultExt = "tex", LatexDocument *doc = nullptr); // signaled by latexViewer to open specific file
 
 	void editUndo(); ///< undo changes in text editor
 	void editRedo(); ///< redo changes in text editor
@@ -302,6 +314,7 @@ protected slots:
 	void editMoveLineUp();
 	void editMoveLineDown();
 	void editDuplicateLine();
+	void editSortLines();
 	void editAlignMirrors();
 	void editEraseWordCmdEnv();
 	void editGotoDefinition(QDocumentCursor c = QDocumentCursor());
@@ -323,6 +336,8 @@ protected slots:
 
 	void LTErrorMessage(QString message);
 
+    void paletteChanged(const QPalette &palette);
+
 private slots:
 	void readSettings(bool reread = false); ///< read configured/default settings from ini
 	void saveSettings(const QString &configName = ""); ///< save all setting to ini
@@ -340,7 +355,7 @@ protected slots:
 
 	void getExpandedStructureEntries(const QModelIndex &index, QSet<QString> &expandedEntryTags, QString baseTag = QString());
 	void expandStructureEntries(const QModelIndex index, const QSet<QString> &expandedEntryTags, QString baseTag = QString());
-	void updateStructure(bool initial = false, LatexDocument *doc = 0, bool hidden = false);
+    void updateStructure(bool initial = false, LatexDocument *doc = nullptr, bool hidden = false);
 	void showStructure();
 	void clickedOnStructureEntry(const QModelIndex &index);
 	void structureContextMenuCloseDocument(LatexDocument *document);
@@ -364,6 +379,7 @@ protected slots:
 	void insertXmlTagFromToolButtonAction();
 	void callToolButtonAction();
 	void insertFromAction();
+    void insertFromTagList(QListWidgetItem *item);
 	void insertBib();
 	void closeEnvironment();
 
@@ -408,17 +424,19 @@ protected slots:
 	bool checkProgramPermission(const QString &program, const QString &cmdId, LatexDocument *master);
 	void runInternalPdfViewer(const QFileInfo &master, const QString &options);
 	void runBibliographyIfNecessary(const QFileInfo &cmd);
+	QDateTime GetBblLastModified(void);
 
 	void showExtendedSearch();
 
 	void changeIconSize(int value);
 	void changeSecondaryIconSize(int value);
+    void changePDFIconSize(int value);
 	void changeSymbolGridIconSize(int value, bool changePanel = true);
 
 public slots:
 	void connectSubCommand(ProcessX *p, bool showStdoutLocallyDefault);
 private slots:
-	void runInternalCommand(const QString &cmd, const QFileInfo &master, const QString &options);
+    void runInternalCommand(const QString &cmd, const QFileInfo &master, const QString &options);
 	void commandLineRequested(const QString &cmdId, QString *result, bool *);
 	void beginRunningCommand(const QString &commandMain, bool latex, bool pdf, bool async);
 	void beginRunningSubCommand(ProcessX *p, const QString &commandMain, const QString &subCommand, const RunCommandFlags &flags);
@@ -426,13 +444,14 @@ private slots:
 	void endRunningCommand(const QString &commandMain, bool latex, bool pdf, bool async);
 
 
-	bool runCommand(const QString &commandline, QString *buffer = 0, QTextCodec *codecForBuffer = 0);
-	bool runCommandNoSpecialChars(QString commandline, QString *buffer = 0, QTextCodec *codecForBuffer = 0);
+    bool runCommand(const QString &commandline, QString *buffer = nullptr, QTextCodec *codecForBuffer = nullptr, bool saveAll=true);
+    bool runCommandNoSpecialChars(QString commandline, QString *buffer = nullptr, QTextCodec *codecForBuffer = nullptr);
 	void setStatusMessageProcess(const QString &message);
+    bool runCommandAsync(const QString &commandline, const char *returnCMD);
 protected slots:
 	void processNotification(const QString &message);
     void clearLogs();
-	void openTerminal(); ///< open external terminal
+	void openExternalTerminal(void); ///< open external terminal
 	void cleanAll();
 	void commandFromAction();  ///< calls a command given by sender.data, doesn't wait
 
@@ -485,20 +504,21 @@ protected slots:
 	void viewCollapseBlock();
 	void viewExpandBlock();
 
+#ifndef NO_POPPLER_PREVIEW
 	QObject *newPdfPreviewer(bool embedded = false);
+#endif
 	void pdfClosed();
-	void restoreMacMenuBar();
 
 	void masterDocumentChanged(LatexDocument *doc);
 	void aboutToDeleteDocument(LatexDocument *doc);
 
-	void updateCompleter(LatexEditorView *edView = 0);
+    void updateCompleter(LatexEditorView *edView = nullptr);
 	void completerNeedsUpdate();
 	void needUpdatedCompleter();
 
 	void outputPageChanged(const QString &id);
 
-	void gotoLine(int line, int col = 0, LatexEditorView *edView = 0, QEditor::MoveFlags mflags = QEditor::Navigation, bool setFocus = true); // line is 0 based
+    void gotoLine(int line, int col = 0, LatexEditorView *edView = nullptr, QEditor::MoveFlags mflags = QEditor::Navigation, bool setFocus = true); // line is 0 based
 	bool gotoLine(int line, const QString &fileName);  // line is 0 based, absolute file name
 	void gotoLine(LatexDocument *doc, int line, int col=0);
 	void gotoLogEntryEditorOnly(int logEntryNumber);
@@ -524,6 +544,8 @@ protected slots:
 	void showPreviewQueue();
 	void showImgPreview(const QString &fname);
 	void showImgPreviewFinished(const QPixmap &pm, int page);
+	void recompileForPreview();
+	void recompileForPreviewNow();
 
 	void templateEdit(const QString &fname);
 
@@ -559,7 +581,6 @@ protected slots:
 
 	void updateTexQNFA();
 	void updateTexLikeQNFA(QString languageName, QString filename);
-	void updateHighlighting();
 
 	void toggleGrammar(int type);
 
@@ -579,7 +600,7 @@ protected:
 #ifdef Q_OS_WIN
     bool eventFilter(QObject *obj, QEvent *event);
 #endif
-#if (QT_VERSION > 0x050000) && (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
+#if (QT_VERSION <= 0x050700) && (defined(Q_OS_MAC))
 	bool eventFilter(QObject *obj, QEvent *event);
 #endif
 
@@ -597,7 +618,7 @@ protected:
 
 	QStringList m_columnCutBuffer;
 
-	QTimer autosaveTimer;
+	QTimer autosaveTimer,previewDelayTimer,previewFullCompileDelayTimer;
 
 	bool completionBaseCommandsUpdated;
 
@@ -626,14 +647,14 @@ protected:
 
 	bool recheckLabels;
 
-	LatexEditorView *editorViewForLabel(LatexDocument *doc, const QString &label);
+    bool rememberFollowFromScroll,enlargedViewer;
 
 	QSet<QString> latexPackageList, currentPackageList;
 
 	QMap<QString, QString> *mReplacementList;
 
 public:
-	Q_PROPERTY(QString clipboard READ clipboardText WRITE setClipboardText);
+    Q_PROPERTY(QString clipboard READ clipboardText WRITE setClipboardText)
 	Q_INVOKABLE QString clipboardText(const QClipboard::Mode &mode = QClipboard::Clipboard) const;
 	Q_INVOKABLE void setClipboardText(const QString &text, const QClipboard::Mode &mode = QClipboard::Clipboard);
 	Q_INVOKABLE int getVersion() const; ///< return current version number of txs (coded in hex,32 bit)
@@ -650,6 +671,8 @@ public slots:
 
 	void slowOperationStarted();
 	void slowOperationEnded();
+
+	void openBugsAndFeatures();
 
 signals:
 	void infoNewFile(); ///< signal that a new file has been generated. Used for scritps as trigger.
